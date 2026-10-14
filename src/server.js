@@ -580,7 +580,8 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal error' });
 });
 
-const server = app.listen(config.port, () => {
+const port = Number(process.env.PORT) || 10000;
+const server = app.listen(port, () => {
   console.log(`Website Change Detector listening on ${config.baseUrl}`);
 });
 
