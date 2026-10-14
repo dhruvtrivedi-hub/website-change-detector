@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const env = process.env;
-const port = Number(env.PORT) || 10000;
+const port = Number(env.PORT) || 3000;
 const dataDir = path.resolve(env.DATA_DIR || './data');
 
 function loadSecret() {
