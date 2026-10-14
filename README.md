@@ -16,6 +16,7 @@ Optional environment variables:
 | Variable | Purpose |
 |---|---|
 | `PORT`, `BASE_URL` | Server port and the public URL used in alert diff links |
+| `SCRAPER_USER_AGENT` | Optional identifying User-Agent for page fetches; include a service name and contact URL |
 | `SMTP_URL`, `MAIL_FROM` | Email alerts, e.g. `smtps://user:pass@smtp.example.com`. Without it, emails are printed to the log |
 | `SECRET` | Signs diff links and encrypts stored webhook/bot tokens (auto-generated in `data/secret.key` if unset) |
 | `DATA_DIR` | SQLite DB (default `./data`) |
@@ -86,7 +87,7 @@ Notes: the extension only asks for access to your server's address (not all site
 - **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every redirect is re-checked (SSRF guard). Page subresources are not fetched. A determined DNS-rebinding attacker could still race the check; use network egress controls for a public deployment.
 - Dashboard sessions use an HttpOnly cookie stored server-side and remain valid until sign-out. Set `BASE_URL` to your HTTPS URL when deploying publicly.
 - This lightweight scraper does not execute page JavaScript or produce screenshots. Sites that render all content in the browser may return little or no monitorable text. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
-- The service sends a normal Chrome user agent. Respect each site's terms of service and robots rules for the pages you monitor.
+- Page requests identify the service with `WebsiteChangeDetector/1.1` by default. Configure `SCRAPER_USER_AGENT` with a contact URL if you operate a public deployment. HTTP 429 responses are treated as a block and `Retry-After` is honored; use an interval the target permits and request access from the site operator if needed.
 - Old versions are pruned to the latest 100 per watch.
 - Scraping behavior: this version uses built-in `fetch` and Cheerio; no Chromium download or system browser is needed. JavaScript-rendered content, screenshots, and visual picking are unavailable; use CSS selectors on content present in the server-returned HTML.
 - Upgrading from the previous version: just replace the files and restart. The database migrates itself (adds the `ai_summary` column and the `trackers` / `readings` tables) and existing watches keep working.
