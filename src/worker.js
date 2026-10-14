@@ -152,6 +152,7 @@ function recordSuccess(page, watches) {
 // ---------- Per-watch change detection ----------
 
 function saveShot(watchId, buf, cache) {
+  if (!buf) return null;
   const dir = path.join(config.dataDir, 'shots', String(watchId));
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${Date.now()}.png`);

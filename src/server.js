@@ -11,7 +11,7 @@ import { config } from './config.js';
 import { db } from './db.js';
 import { assertPublicUrl, normalizeUrl } from './util/ssrf.js';
 import { sha256, randomToken, encrypt, safeEqual } from './util/crypto.js';
-import { render, FetchError, closeBrowser } from './browser.js';
+import { closeBrowser } from './browser.js';
 import { gate } from './ratelimit.js';
 import { enqueue, cleanupJobs } from './queue.js';
 import { schedulerTick, startWorker } from './worker.js';
@@ -467,29 +467,7 @@ app.get('/api/watches/:id/numbers', auth, (req, res) => {
 
 app.post('/api/picker', auth, wrap(async (req, res) => {
   if (limited(`picker:${req.user.id}`, 8, 10 * 60_000)) return res.status(429).json({ error: 'Too many previews. Wait a few minutes.' });
-  let url;
-  try { url = normalizeUrl((await assertPublicUrl(String(req.body.url || ''))).toString()); } catch (e) { return res.status(400).json({ error: e.message }); }
-  const host = new URL(url).hostname;
-  try {
-    await gate.acquire(host);
-  } catch (e) { return res.status(503).json({ error: e.message }); }
-  try {
-    const r = await render(url, { collectElements: true });
-    const elements = r.elements.filter((e) => e.y < r.pageHeight);
-    res.json({
-      screenshot: r.screenshot.toString('base64'),
-      width: r.pageWidth,
-      height: r.pageHeight,
-      elements,
-    });
-  } catch (e) {
-    const msg = e instanceof FetchError && e.kind === 'blocked'
-      ? `This site blocks automated browsers (${e.message}). It can't be monitored.`
-      : `Could not load the page: ${e.message}`;
-    res.status(422).json({ error: msg });
-  } finally {
-    gate.release(host);
-  }
+  return res.status(501).json({ error: 'Visual region picking needs a rendered browser preview, which is disabled in the cloud-safe HTTP scraper. Enter CSS selectors in the watch form instead.' });
 }));
 
 // ---------- Public, signed diff pages (linked from alerts) ----------
@@ -552,12 +530,12 @@ tr.gap td{background:#eef0f4;color:var(--muted);text-align:center;font:12px syst
 <h2>Text changes</h2>
 <div class="heads"><div>Before — ${when(A.created_at)}</div><div>After — ${when(B.created_at)}</div></div>
 <table>${rows || '<tr><td colspan="2">No text differences.</td></tr>'}</table>
-<h2>Screenshots</h2>
+${A.screenshot_path && B.screenshot_path ? `<h2>Screenshots</h2>
 <div class="shots">
 <figure><figcaption>Before</figcaption><img loading="lazy" src="${base}/old.png" alt="Screenshot before"></figure>
 <figure><figcaption>After</figcaption><img loading="lazy" src="${base}/new.png" alt="Screenshot after"></figure>
 <figure><figcaption>Highlighted differences</figcaption><img loading="lazy" src="${base}/diff.png" alt="Highlighted screenshot differences"></figure>
-</div></main></body></html>`);
+</div>` : '<p class="meta">Screenshot comparisons are unavailable with the lightweight HTTP scraper.</p>'}</main></body></html>`);
 });
 
 const sendShot = (res, p) => (p && fs.existsSync(p) ? res.sendFile(path.resolve(p)) : res.status(404).send('Screenshot not available'));

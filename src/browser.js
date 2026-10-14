@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import * as cheerio from 'cheerio';
 import { config } from './config.js';
 import { assertPublicUrl } from './util/ssrf.js';
 
@@ -16,28 +16,7 @@ export class FetchError extends Error {
   }
 }
 
-let browser;
-async function getBrowser() {
-  if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
-  }
-  return browser;
-}
-export async function closeBrowser() {
-  await browser?.close().catch(() => {});
-}
-
-// Simple semaphore: bound the number of live browser contexts.
-let active = 0;
-const waiters = [];
-async function acquire() {
-  if (active < config.concurrency + 1) { active++; return; }
-  await new Promise((r) => waiters.push(r));
-}
-function release() {
-  const next = waiters.shift();
-  if (next) next(); else active--;
-}
+export async function closeBrowser() { /* No persistent browser process in the HTTP scraper. */ }
 
 export function classify(status, text) {
   const t = text.slice(0, 4000).toLowerCase();
@@ -48,7 +27,7 @@ export function classify(status, text) {
   if (challenge && (status === 503 || text.length < 2500)) return { kind: 'blocked', message: 'CAPTCHA / bot-challenge page' };
   if (status >= 500) return { kind: 'error', message: `Server error (HTTP ${status})` };
   if (status >= 400) return { kind: 'error', message: `HTTP ${status}`, noRetry: true };
-  if (text.trim().length < 20) return { kind: 'error', message: 'Page rendered empty' };
+  if (text.trim().length < 20) return { kind: 'error', message: 'Page returned empty content' };
   return null;
 }
 
@@ -60,129 +39,66 @@ function parseRetryAfter(v) {
   return Number.isFinite(d) ? Math.min(Math.max(d - Date.now(), 0), 3600_000) : 0;
 }
 
-// Runs inside the page: build a stable-ish unique CSS selector for each sizeable element.
-function collectElementsInPage() {
-  const W = document.documentElement.scrollWidth;
-  const H = document.documentElement.scrollHeight;
-  const esc = (s) => CSS.escape(s);
-  const idOk = (el) => el.id && !/\d{4,}/.test(el.id) && document.querySelectorAll('#' + esc(el.id)).length === 1;
-  function selector(el) {
-    const parts = [];
-    let anchored = false;
-    for (let n = el; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) {
-      if (idOk(n)) { parts.unshift('#' + esc(n.id)); anchored = true; break; }
-      const tag = n.tagName.toLowerCase();
-      const sibs = [...n.parentElement.children].filter((c) => c.tagName === n.tagName);
-      parts.unshift(sibs.length > 1 ? `${tag}:nth-of-type(${sibs.indexOf(n) + 1})` : tag);
+async function fetchDocument(startUrl, timeoutMs) {
+  let current = startUrl;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    for (let redirects = 0; redirects <= 5; redirects++) {
+      const safeUrl = await assertPublicUrl(current);
+      const response = await fetch(safeUrl, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'user-agent': config.userAgent,
+          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) return { response, html: await response.text() };
+        if (redirects === 5) throw new Error('Too many redirects');
+        current = new URL(location, safeUrl).toString();
+        continue;
+      }
+      return { response, html: await response.text() };
     }
-    return (anchored ? '' : 'body > ') + parts.join(' > ');
+    throw new Error('Too many redirects');
+  } finally {
+    clearTimeout(timer);
   }
-  const out = [];
-  for (const el of document.querySelectorAll('body *')) {
-    if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'LINK', 'META', 'BR', 'SVG', 'PATH'].includes(el.tagName.toUpperCase())) continue;
-    const r = el.getBoundingClientRect();
-    const w = r.width, h = r.height;
-    if (w < 40 || h < 14 || w * h < 600 || w * h > 0.95 * W * H) continue;
-    const cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) continue;
-    const pr = el.parentElement?.getBoundingClientRect();
-    if (pr && Math.abs(pr.width - w) < 2 && Math.abs(pr.height - h) < 2 && el.parentElement !== document.body) continue;
-    const text = (el.innerText || el.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-    out.push({
-      selector: selector(el),
-      tag: el.tagName.toLowerCase(),
-      text,
-      x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(w), h: Math.round(h),
-    });
-  }
-  out.sort((a, b) => b.w * b.h - a.w * a.h);
-  return out.slice(0, 400);
 }
 
 export async function render(url, { selectors = [], timeoutMs = config.jobTimeoutMs, collectElements = false } = {}) {
-  await assertPublicUrl(url);
-  await acquire();
-  let ctx;
-  let timedOut = false;
-  let timer;
+  void selectors;
   try {
-    const b = await getBrowser();
-    // Fresh, isolated context per check: no cookies, no stored credentials, nothing persisted.
-    ctx = await b.newContext({
-      viewport: { width: 1366, height: 900 },
-      userAgent: config.userAgent,
-      locale: 'en-US',
-      timezoneId: 'UTC', // fixed so locale/time-dependent rendering doesn't create noise
-      serviceWorkers: 'block',
-      acceptDownloads: false,
-    });
-    timer = setTimeout(() => { timedOut = true; ctx.close().catch(() => {}); }, timeoutMs);
-
-    await ctx.route('**/*', async (route) => {
-      const req = route.request();
-      const u = req.url();
-      if (/^(data|blob|about):/.test(u)) return route.continue();
-      if (['media', 'font'].includes(req.resourceType())) return route.abort();
-      try {
-        await assertPublicUrl(u); // also guards redirects and sub-requests (SSRF)
-        return route.continue();
-      } catch {
-        return route.abort('blockedbyclient');
-      }
-    });
-
-    const page = await ctx.newPage();
-    const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(500);
-
-    const status = resp?.status() ?? 0;
-    const headers = resp?.headers() ?? {};
-    const visibleText = await page.evaluate(() => document.body?.innerText || '');
-    const verdict = classify(status, visibleText);
+    const { response, html } = await fetchDocument(url, timeoutMs);
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType && !/html|xhtml|text\//i.test(contentType)) {
+      throw new FetchError('error', `Unsupported page content type (${contentType.split(';')[0]})`, { noRetry: true });
+    }
+    const $ = cheerio.load(html);
+    const visibleText = $('body').text() || $.root().text();
+    const verdict = classify(response.status, visibleText);
     if (verdict) {
       throw new FetchError(verdict.kind, verdict.message, {
         noRetry: verdict.noRetry || verdict.kind === 'blocked',
-        retryAfterMs: parseRetryAfter(headers['retry-after']),
+        retryAfterMs: parseRetryAfter(response.headers.get('retry-after')),
       });
     }
-
-    const html = await page.content();
-    const pageHeight = await page.evaluate(() =>
-      Math.min(6000, Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0)),
-    );
-    const screenshot = await page.screenshot({
-      type: 'png',
-      fullPage: true,
-      clip: { x: 0, y: 0, width: 1366, height: Math.max(pageHeight, 100) },
-      animations: 'disabled',
-      caret: 'hide',
-    });
-
-    // Bounding boxes of watched/ignored regions (used to mask or crop the screenshot diff)
-    const rects = await page.evaluate((sels) => {
-      const out = {};
-      for (const s of sels) {
-        try {
-          out[s] = [...document.querySelectorAll(s)].slice(0, 25).map((e) => {
-            const r = e.getBoundingClientRect();
-            return { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) };
-          }).filter((r) => r.w > 0 && r.h > 0);
-        } catch { out[s] = []; }
-      }
-      return out;
-    }, selectors);
-
-    const elements = collectElements ? await page.evaluate(collectElementsInPage) : undefined;
-
-    return { status, html, visibleText, screenshot, rects, elements, pageWidth: 1366, pageHeight };
+    return {
+      status: response.status,
+      html,
+      visibleText,
+      screenshot: null,
+      rects: Object.fromEntries(selectors.map((selector) => [selector, []])),
+      elements: collectElements ? [] : undefined,
+      pageWidth: 0,
+      pageHeight: 0,
+    };
   } catch (e) {
     if (e instanceof FetchError) throw e;
-    if (timedOut) throw new FetchError('error', `Timed out after ${Math.round(timeoutMs / 1000)}s`);
-    throw new FetchError('error', String(e.message || e).split('\n')[0].slice(0, 300));
-  } finally {
-    clearTimeout(timer);
-    await ctx?.close().catch(() => {});
-    release();
+    const message = e.name === 'AbortError' ? `Timed out after ${Math.round(timeoutMs / 1000)}s` : String(e.message || e).split('\n')[0].slice(0, 300);
+    throw new FetchError('error', message);
   }
 }

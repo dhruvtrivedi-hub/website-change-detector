@@ -31,7 +31,7 @@ export const config = {
   maxIntervalMin: 1440,
 
   // Job queue
-  concurrency: Number(env.CONCURRENCY) || 3, // parallel browser checks overall
+  concurrency: Number(env.CONCURRENCY) || 3, // parallel page checks overall
   jobTimeoutMs: 45_000,
   maxAttempts: 3, // per scheduled check (timeouts / 5xx / network errors)
   tickMs: 15_000, // scheduler tick
