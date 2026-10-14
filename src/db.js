@@ -51,7 +51,7 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  token_hash TEXT UNIQUE NOT NULL,
+  password_hash TEXT,
   discord_webhook TEXT,          -- encrypted
   telegram_bot_token TEXT,       -- encrypted
   telegram_chat_id TEXT,
@@ -181,3 +181,34 @@ function addColumn(table, column, ddl) {
   if (!cols.some((c) => c.name === column)) raw.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
 }
 addColumn('watches', 'ai_summary', 'INTEGER NOT NULL DEFAULT 1');
+addColumn('users', 'password_hash', 'TEXT');
+
+// Remove the obsolete access-token column while preserving legacy accounts and their ids.
+if (raw.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'token_hash')) {
+  raw.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE;');
+  try {
+    raw.exec(`
+      CREATE TABLE users_password_auth (
+        id INTEGER PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        discord_webhook TEXT,
+        telegram_bot_token TEXT,
+        telegram_chat_id TEXT,
+        last_digest_at INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+      INSERT INTO users_password_auth(id,email,password_hash,discord_webhook,telegram_bot_token,telegram_chat_id,last_digest_at,created_at)
+        SELECT id,email,password_hash,discord_webhook,telegram_bot_token,telegram_chat_id,last_digest_at,created_at FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_password_auth RENAME TO users;
+    `);
+    raw.exec('COMMIT;');
+  } catch (e) {
+    raw.exec('ROLLBACK;');
+    throw e;
+  } finally {
+    raw.exec('PRAGMA foreign_keys=ON;');
+  }
+}
+db.prepare('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE password_hash IS NULL)').run();

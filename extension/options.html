@@ -7,15 +7,18 @@
 </head>
 <body class="opts">
 <h1>Change Detector Helper</h1>
-<p class="muted">Connect the extension to your Change Detector server using the shared application password configured on that server.</p>
+<p class="muted">Sign in with your Change Detector account. Create an account on the website first if you do not have one yet.</p>
 <label>Server address
   <input type="url" id="server" placeholder="http://localhost:3000" autocomplete="off">
 </label>
-<label>Application password
+<label>Email address
+  <input type="email" id="email" autocomplete="email">
+</label>
+<label>Password
   <input type="password" id="password" autocomplete="current-password">
 </label>
 <div id="warn" class="warn" hidden></div>
-<div class="actions"><button class="primary" id="save">Save and test connection</button></div>
+<div class="actions"><button class="primary" id="save">Sign in and connect</button></div>
 <div id="msg" class="muted" role="status"></div>
 <script src="options.js"></script>
 </body>

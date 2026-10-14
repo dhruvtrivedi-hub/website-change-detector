@@ -51,6 +51,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 .login{max-width:460px;margin:10vh auto;background:linear-gradient(150deg,rgba(20,31,50,.98),rgba(13,22,37,.98));border:1px solid #2b3952;border-radius:22px;padding:36px;display:grid;gap:17px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:rise .45s ease both}
 .login:before{content:"WEB INTELLIGENCE";font-size:10px;letter-spacing:.2em;color:var(--accent2);font-weight:700}.login h1{margin:0;font-size:28px;letter-spacing:-.05em}.login p{margin:0;color:#9eacc1;font-size:14px}
 .login form{display:grid;gap:15px}
+.auth-switch{margin:0!important;text-align:center;color:var(--muted);font-size:13px!important}.auth-switch button{border:0;padding:0;background:none;color:#a99fff;font-weight:700;cursor:pointer}.auth-switch button:hover{color:#c4bcff;text-decoration:underline}
 /* picker */
 .pickbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .pickbar label{display:flex;gap:6px;align-items:center;font-weight:400}
@@ -138,6 +139,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let authenticated = false;
+let authMode = 'signin';
 let me = null, watches = [], editing = null, pollTimer = null;
 
 async function api(path, opts = {}) {
@@ -176,20 +178,31 @@ function render() {
 }
 
 function renderLogin() {
+  const signingUp = authMode === 'signup';
   $('#app').innerHTML = `
   <div class="login">
     <h1>Change Detector</h1>
-    <p>Sign in with the application password configured for this server.</p>
+    <p>${signingUp ? 'Create an account to keep your monitored pages and alerts together.' : 'Sign in to return to your monitored pages and alerts.'}</p>
     <form id="loginForm">
-      <label>Application password <input id="lgPassword" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
-      <button class="btn primary" id="lgLogin" type="submit">Sign in</button>
+      <label>Email address <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+      <label>Password <input id="lgPassword" type="password" autocomplete="${signingUp ? 'new-password' : 'current-password'}" placeholder="${signingUp ? 'At least 10 characters' : 'Enter your password'}" minlength="${signingUp ? 10 : 1}" maxlength="1024" required></label>
+      ${signingUp ? '<label>Confirm password <input id="lgConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="1024" required></label>' : ''}
+      <button class="btn primary" id="lgLogin" type="submit">${signingUp ? 'Create account' : 'Sign in'}</button>
     </form>
+    <p class="auth-switch">${signingUp ? 'Already have an account?' : 'New to Change Detector?'} <button type="button" id="authModeToggle">${signingUp ? 'Sign in' : 'Create an account'}</button></p>
     <div class="err" id="lgErr"></div>
   </div>`;
+  $('#authModeToggle').onclick = () => { authMode = signingUp ? 'signin' : 'signup'; renderLogin(); };
   $('#loginForm').onsubmit = async (event) => {
     event.preventDefault();
+    if (signingUp && $('#lgPassword').value !== $('#lgConfirm').value) {
+      $('#lgErr').textContent = 'Passwords do not match.';
+      return;
+    }
     try {
-      await api('/login', { method: 'POST', body: { password: $('#lgPassword').value } });
+      await api(signingUp ? '/signup' : '/login', {
+        method: 'POST', body: { email: $('#lgEmail').value, password: $('#lgPassword').value },
+      });
       authenticated = true;
       render();
     } catch (e) { $('#lgErr').textContent = e.message; }

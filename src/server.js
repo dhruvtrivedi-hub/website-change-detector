@@ -1,4 +1,6 @@
 import express from 'express';
+import crypto from 'node:crypto';
+import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,26 +22,25 @@ import { aiEnabled } from './ai.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '100kb' }));
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '';
+  if (origin.startsWith('chrome-extension://')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Vary', 'Origin');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ---------- helpers ----------
 
 const SESSION_COOKIE = 'wcd_session';
 const SESSION_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60;
-let appUser = db.prepare('SELECT * FROM users ORDER BY id LIMIT 1').get();
-if (!appUser) {
-  const email = config.appEmail || 'owner@localhost';
-  const r = db.prepare('INSERT INTO users(email, token_hash, created_at) VALUES (?,?,?)')
-    .run(email, sha256(randomToken(32)), Date.now());
-  appUser = db.prepare('SELECT * FROM users WHERE id=?').get(r.lastInsertRowid);
-}
-if (config.appEmail && config.appEmail !== appUser.email && !db.prepare('SELECT 1 FROM users WHERE email=?').get(config.appEmail)) {
-  db.prepare('UPDATE users SET email=? WHERE id=?').run(config.appEmail, appUser.id);
-  appUser = db.prepare('SELECT * FROM users WHERE id=?').get(appUser.id);
-}
-// This app uses one shared application password, so fold legacy account data into its owner row.
-db.prepare('UPDATE watches SET user_id=? WHERE user_id<>?').run(appUser.id, appUser.id);
-db.prepare('UPDATE alerts SET user_id=? WHERE user_id<>?').run(appUser.id, appUser.id);
+const scrypt = promisify(crypto.scrypt);
 
 const hits = new Map();
 function limited(key, max, windowMs) {
@@ -65,23 +66,44 @@ function cookieValue(req, name) {
 }
 
 function auth(req, res, next) {
-  const authorization = req.headers.authorization || '';
-  const password = authorization.startsWith('Password ') ? authorization.slice(9) : '';
-  if (config.appPassword && password && safeEqual(sha256(password), sha256(config.appPassword))) {
-    req.user = appUser;
-    return next();
-  }
   const sessionId = cookieValue(req, SESSION_COOKIE);
   const user = sessionId && db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.session_hash=?')
     .get(sha256(sessionId));
-  if (!user) return res.status(401).json({ error: 'Please sign in with the application password.' });
+  if (!user) return res.status(401).json({ error: 'Please sign in with your email and password.' });
   req.user = user;
   next();
 }
 
-function sessionCookie(value, clear = false) {
-  const secure = config.baseUrl.startsWith('https://') ? '; Secure' : '';
-  return `${SESSION_COOKIE}=${clear ? '' : encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${clear ? 0 : SESSION_MAX_AGE_SECONDS}${clear ? '; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : ''}${secure}`;
+function sessionCookie(value, clear = false, extension = false) {
+  const secure = config.baseUrl.startsWith('https://') || extension ? '; Secure' : '';
+  const sameSite = extension ? 'None' : 'Lax';
+  return `${SESSION_COOKIE}=${clear ? '' : encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${clear ? 0 : SESSION_MAX_AGE_SECONDS}${clear ? '; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : ''}${secure}`;
+}
+
+const passwordHash = async (password) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = await scrypt(password, salt, 64);
+  return `${salt}:${derived.toString('hex')}`;
+};
+
+async function passwordMatches(password, stored) {
+  if (!stored || typeof stored !== 'string') return false;
+  const [salt, expected] = stored.split(':');
+  if (!salt || !expected || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(expected)) return false;
+  const actual = await scrypt(password, salt, 64);
+  return safeEqual(actual.toString('hex'), expected);
+}
+
+function validEmail(value) {
+  const email = String(value || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200 ? email : null;
+}
+
+function createSession(userId, res, extension = false) {
+  const sessionId = randomToken(32);
+  db.prepare('INSERT INTO sessions(session_hash, user_id, created_at) VALUES (?,?,?)')
+    .run(sha256(sessionId), userId, Date.now());
+  res.setHeader('Set-Cookie', sessionCookie(sessionId, false, extension));
 }
 
 function ownWatch(req, res) {
@@ -221,24 +243,55 @@ function publicWatch(w, trackers = trackersOf(w.id)) {
 const WATCH_SELECT = `SELECT w.*, p.url, p.status, p.last_error, p.last_checked_at, p.next_check_at
                       FROM watches w JOIN pages p ON p.id = w.page_id`;
 
-// ---------- API: shared-password login ----------
+// ---------- API: email/password accounts ----------
 
-app.post('/api/login', (req, res) => {
-  if (!config.appPassword) return res.status(503).json({ error: 'The server has not configured APP_PASSWORD yet.' });
+app.post('/api/signup', wrap(async (req, res) => {
+  const email = validEmail(req.body?.email);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  if (!password || password.length > 1024 || !safeEqual(sha256(password), sha256(config.appPassword)))
-    return res.status(401).json({ error: 'Incorrect application password.' });
-  const sessionId = randomToken(32);
-  db.prepare('INSERT INTO sessions(session_hash, user_id, created_at) VALUES (?,?,?)')
-    .run(sha256(sessionId), appUser.id, Date.now());
-  res.setHeader('Set-Cookie', sessionCookie(sessionId));
-  res.json({ ok: true });
-});
+  if (!email) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (password.length < 10 || password.length > 1024)
+    return res.status(400).json({ error: 'Password must be at least 10 characters.' });
+
+  const existing = db.prepare('SELECT * FROM users WHERE email=?').get(email);
+  if (existing?.password_hash) return res.status(409).json({ error: 'An account with this email already exists. Sign in instead.' });
+
+  const encoded = await passwordHash(password);
+  let user = db.prepare('SELECT * FROM users WHERE email=?').get(email);
+  if (user?.password_hash) return res.status(409).json({ error: 'An account with this email already exists. Sign in instead.' });
+  if (!user) {
+    const legacyOwner = db.prepare("SELECT * FROM users WHERE email='owner@localhost' AND password_hash IS NULL ORDER BY id LIMIT 1").get();
+    if (legacyOwner) {
+      db.prepare('UPDATE users SET email=?, password_hash=? WHERE id=?').run(email, encoded, legacyOwner.id);
+      user = db.prepare('SELECT * FROM users WHERE id=?').get(legacyOwner.id);
+    }
+  }
+  if (user) {
+    // Claim a legacy token-era account by its email while keeping its watches and alert settings.
+    db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(encoded, user.id);
+    user = db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+  } else {
+    const r = db.prepare('INSERT INTO users(email, password_hash, created_at) VALUES (?,?,?)')
+      .run(email, encoded, Date.now());
+    user = db.prepare('SELECT * FROM users WHERE id=?').get(r.lastInsertRowid);
+  }
+  createSession(user.id, res, (req.headers.origin || '').startsWith('chrome-extension://'));
+  res.status(201).json({ ok: true, email: user.email });
+}));
+
+app.post('/api/login', wrap(async (req, res) => {
+  const email = validEmail(req.body?.email);
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const user = email && db.prepare('SELECT * FROM users WHERE email=?').get(email);
+  if (!user || !await passwordMatches(password, user.password_hash))
+    return res.status(401).json({ error: 'Email or password is incorrect.' });
+  createSession(user.id, res, (req.headers.origin || '').startsWith('chrome-extension://'));
+  res.json({ ok: true, email: user.email });
+}));
 
 app.post('/api/logout', auth, (req, res) => {
   const sessionId = cookieValue(req, SESSION_COOKIE);
   if (sessionId) db.prepare('DELETE FROM sessions WHERE session_hash=?').run(sha256(sessionId));
-  res.setHeader('Set-Cookie', sessionCookie('', true));
+  res.setHeader('Set-Cookie', sessionCookie('', true, (req.headers.origin || '').startsWith('chrome-extension://')));
   res.json({ ok: true });
 });
 

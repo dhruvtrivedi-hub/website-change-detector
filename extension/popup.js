@@ -5,16 +5,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // Same normalisation the server applies, so "already watching" matches reliably.
 const norm = (u) => { const x = new URL(u); x.hash = ''; return x.toString(); };
 
-const state = { server: '', password: '', tab: null, existing: null, picks: { watch: [], ignore: [], track: [] }, error: '' };
+const state = { server: '', email: '', tab: null, existing: null, picks: { watch: [], ignore: [], track: [] }, error: '' };
 
 async function api(path, { method = 'GET', body } = {}) {
   const r = await fetch(state.server + '/api' + path, {
     method,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Password ' + state.password },
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401) throw new Error('The server did not accept your application password. Check the extension settings.');
+  if (r.status === 401) throw new Error('Your sign-in session is not active. Open extension settings and sign in again.');
   if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
   return j;
 }
@@ -24,11 +25,11 @@ const savePicks = () => chrome.storage.local.set({ wcd_picks: { url: norm(state.
 function message(html) { root.innerHTML = html; }
 
 async function init() {
-  const s = await chrome.storage.local.get(['wcd_server', 'wcd_password', 'wcd_picks']);
+  const s = await chrome.storage.local.get(['wcd_server', 'wcd_email', 'wcd_picks']);
   state.server = s.wcd_server || '';
-  state.password = s.wcd_password || '';
-  if (!state.server || !state.password) {
-    message(`<h1>Change Detector Helper</h1><p class="muted">Connect the extension to your server first.</p><button class="primary" id="open">Open settings</button>`);
+  state.email = s.wcd_email || '';
+  if (!state.server || !state.email) {
+    message(`<h1>Change Detector Helper</h1><p class="muted">Sign in to your Change Detector account first.</p><button class="primary" id="open">Open settings</button>`);
     $('#open').onclick = () => { chrome.runtime.openOptionsPage(); window.close(); };
     return;
   }

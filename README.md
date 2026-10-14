@@ -16,8 +16,6 @@ Optional environment variables:
 
 | Variable | Purpose |
 |---|---|
-| `APP_PASSWORD` | Required shared password used to sign in to the dashboard and browser extension |
-| `APP_EMAIL` | Optional notification email for the shared application account |
 | `PORT`, `BASE_URL` | Server port and the public URL used in alert diff links |
 | `SMTP_URL`, `MAIL_FROM` | Email alerts, e.g. `smtps://user:pass@smtp.example.com`. Without it, emails are printed to the log |
 | `SECRET` | Signs diff links and encrypts stored webhook/bot tokens (auto-generated in `data/secret.key` if unset) |
@@ -26,7 +24,7 @@ Optional environment variables:
 | `ANTHROPIC_API_KEY` | Turns on AI-written change summaries (see below). Without it the built-in summary is used |
 | `AI_MODEL` | Model used for summaries (default `claude-haiku-5-5`, a small fast model is plenty) |
 
-Set `APP_PASSWORD` in the server environment, then open the dashboard and sign in with that password. Add a URL and (optionally) configure a Discord webhook or Telegram bot under **Alert settings**. Existing watches are migrated to the shared application account when the server starts.
+Open the dashboard and choose **Create an account** with your email address and a password of at least 10 characters. Use **Sign in** on later visits. Passwords are stored as scrypt hashes and sessions persist across browser restarts until you sign out. Existing token-era users can claim their saved watches by creating an account with the same email address. Email is used as the account name and notification destination; the app does not send verification or sign-in tokens.
 
 ## Requirement map
 
@@ -69,10 +67,10 @@ In **Add / Edit watch → Numbers to track** (or *Pick regions visually → Trac
 `extension/` is a Manifest V3 extension for Chrome, Edge, Brave and other Chromium browsers (not tested in Firefox). It lets you add the page you are looking at, and pick regions or numbers by clicking on the live page, without copying URLs or CSS selectors by hand.
 
 1. Open `chrome://extensions`, enable **Developer mode**, **Load unpacked**, and choose the `extension` folder.
-2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`) and the shared application password, and allow access to that one address when the browser asks.
+2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`), email and password, and allow access to that one address when the browser asks.
 3. On any page click the toolbar button: **Start watching** adds it, or **Pick on the page…** opens an overlay where you click to *Watch*, *Ignore* or *Track number* (↑ / ↓ selects a larger / smaller area, Esc cancels). Reopen the popup to finish. If the page is already watched, picks are merged into the existing watch.
 
-Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and keeps the application password in the browser's extension storage. Use `https://` for any server that is not on your own computer. The server renders the page in its own fresh headless browser, so a selector built from a page you are logged into, or that differs for you (cookie banners, personalisation, A/B tests), may not match there. After adding, use **Check now** and look at the dashboard; the number or region will show a warning if it can't be found.
+Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and stores the server session in the browser cookie jar rather than saving your password. Use `https://` for any server that is not on your own computer. The server renders the page in its own fresh headless browser, so a selector built from a page you are logged into, or that differs for you (cookie banners, personalisation, A/B tests), may not match there. After adding, use **Check now** and look at the dashboard; the number or region will show a warning if it can't be found.
 
 ## The four design questions
 
@@ -87,7 +85,7 @@ Notes: the extension only asks for access to your server's address (not all site
 ## Notes and known limits
 
 - **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every sub-request the browser makes is re-checked (SSRF guard). A determined DNS-rebinding attacker could still race the check; for a public deployment, also run the browser in a network-isolated container.
-- Dashboard sessions use an HttpOnly persistent cookie. Configure a strong `APP_PASSWORD` and set `BASE_URL` to your HTTPS URL when deploying publicly.
+- Dashboard sessions use an HttpOnly cookie stored server-side and remain valid until sign-out. Set `BASE_URL` to your HTTPS URL when deploying publicly.
 - Screenshots are capped at 1366×6000 px. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
 - The service sends a normal Chrome user agent. Respect each site's terms of service and robots rules for the pages you monitor.
 - Old versions are pruned to the latest 100 per watch.
