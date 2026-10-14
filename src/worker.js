@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { db } from './db.js';
 import { config } from './config.js';
-import { render, FetchError } from './browser.js';
+import { render, FetchError } from './scraper.js';
 import { extractText } from './extract.js';
 import { textDiff, isSignificant, summarize } from './diff.js';
 import { claimJobs, completeJob, failJob, enqueue } from './queue.js';

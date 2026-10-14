@@ -11,7 +11,6 @@ import { config } from './config.js';
 import { db } from './db.js';
 import { assertPublicUrl, normalizeUrl } from './util/ssrf.js';
 import { sha256, randomToken, encrypt, safeEqual } from './util/crypto.js';
-import { render, FetchError, closeBrowser } from './browser.js';
 import { gate } from './ratelimit.js';
 import { enqueue, cleanupJobs } from './queue.js';
 import { schedulerTick, startWorker } from './worker.js';
@@ -463,33 +462,11 @@ app.get('/api/watches/:id/numbers', auth, (req, res) => {
   res.json(out);
 });
 
-// ---------- API: visual region picker ----------
+// ---------- API: visual region picker (unavailable without a rendered browser) ----------
 
 app.post('/api/picker', auth, wrap(async (req, res) => {
   if (limited(`picker:${req.user.id}`, 8, 10 * 60_000)) return res.status(429).json({ error: 'Too many previews. Wait a few minutes.' });
-  let url;
-  try { url = normalizeUrl((await assertPublicUrl(String(req.body.url || ''))).toString()); } catch (e) { return res.status(400).json({ error: e.message }); }
-  const host = new URL(url).hostname;
-  try {
-    await gate.acquire(host);
-  } catch (e) { return res.status(503).json({ error: e.message }); }
-  try {
-    const r = await render(url, { collectElements: true });
-    const elements = r.elements.filter((e) => e.y < r.pageHeight);
-    res.json({
-      screenshot: r.screenshot.toString('base64'),
-      width: r.pageWidth,
-      height: r.pageHeight,
-      elements,
-    });
-  } catch (e) {
-    const msg = e instanceof FetchError && e.kind === 'blocked'
-      ? `This site blocks automated browsers (${e.message}). It can't be monitored.`
-      : `Could not load the page: ${e.message}`;
-    res.status(422).json({ error: msg });
-  } finally {
-    gate.release(host);
-  }
+  return res.status(501).json({ error: 'Visual picking requires a rendered browser preview, which is disabled in the lightweight scraper. Enter CSS selectors in the watch form instead.' });
 }));
 
 // ---------- Public, signed diff pages (linked from alerts) ----------
@@ -616,7 +593,6 @@ schedulerTick();
 
 async function shutdown() {
   server.close();
-  await closeBrowser();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

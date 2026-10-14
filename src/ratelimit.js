@@ -25,7 +25,7 @@ export const gate = {
     h.nextAt = Date.now() + config.hostMinGapMs + extraDelayMs + jitter(2000);
   },
 
-  /** Async variant for interactive requests (region picker). */
+  /** Async variant for interactive requests. */
   async acquire(host) {
     for (let i = 0; i < 60; i++) {
       const wait = this.tryAcquire(host);

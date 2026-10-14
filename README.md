@@ -1,6 +1,6 @@
 # Website Change Detector
-
-Monitors public web pages in a headless Chromium browser with Playwright and alerts you to meaningful changes while ignoring noise.
+**Live Demo:** (https://website-change-detector-ujhd.onrender.com/)
+Monitors public web pages with lightweight Axios HTTP requests and Cheerio HTML parsing, then alerts you to meaningful changes while ignoring noise. No browser binaries are installed or launched.
 
 ## Run it
 
@@ -8,18 +8,12 @@ Requires **Node.js 22.13 or newer**. Storage uses Node's built-in SQLite, so the
 
 ```bash
 npm install
-npm run setup          # downloads the Playwright Chromium binary
-npm start               # http://localhost:3000
+npm start              # http://localhost:3000
 ```
 
 ### Deploy on Render
 
-Create a **Web Service** from this repository and use these commands:
-
-- **Build command:** `npm install && PLAYWRIGHT_BROWSERS_PATH=0 npm run setup`
-- **Start command:** `PLAYWRIGHT_BROWSERS_PATH=0 npm start`
-
-Set `PLAYWRIGHT_BROWSERS_PATH=0` in the Render environment as well. This stores the Chromium binary inside the project’s `node_modules/playwright-core/.local-browsers` directory rather than a system-wide browser directory, so the build only needs write access to the app workspace. Do not add `--with-deps` to the install command; that attempts to install operating-system packages and requires elevated permissions.
+Create a **Web Service** from this repository with `npm install` as the build command and `npm start` as the start command. No Chromium install step or system browser permissions are needed.
 
 Optional environment variables:
 
@@ -40,12 +34,12 @@ Open the dashboard and choose **Create an account** with your email address and 
 
 | # | Requirement | Where |
 |---|---|---|
-| 1 | URL, name, 15 min–24 h interval, headless Chromium render | `server.js` (validation), `browser.js` |
+| 1 | URL, name, 15 min–24 h interval, HTTP fetch of public HTML | `server.js` (validation), `scraper.js` |
 | 2 | Scheduler, job queue, timeouts, retries, public pages only | `worker.js` (`schedulerTick`), `queue.js`, `util/ssrf.js` |
-| 3 | Save rendered text + screenshot; new snapshot only when hash changes | `worker.js` (`processWatch`) |
+| 3 | Save extracted text; new snapshot only when hash changes | `worker.js` (`processWatch`) |
 | 4 | Noise filtering + sensitivity | `noise.js`, `extract.js`, `diff.js` (`isSignificant`) |
-| 5 | Visual picker for watch and ignore regions, saved as CSS selectors | `public/index.html`, `browser.js` |
-| 6 | Text diff, highlighted screenshot diff, and side-by-side versions | `diff.js`, `/d/...` pages in `server.js` |
+| 5 | CSS selectors and ignore regions entered in the watch form | `public/index.html`, `extract.js` |
+| 6 | Text diff and side-by-side text versions | `diff.js`, `/d/...` pages in `server.js` |
 | 7 | Email + Telegram/Discord, summary + diff link, no duplicates, daily digest | `alerts.js` |
 | 8 | Version timeline + dashboard (last checked / changed / status) | `public/index.html` |
 
@@ -63,7 +57,7 @@ Set `ANTHROPIC_API_KEY` and alerts carry a one- or two-sentence summary such as 
 
 ## Number tracking
 
-In **Add / Edit watch → Numbers to track** (or *Pick regions visually → Track number*) choose the element that shows a price, stock count, rating, and so on. Every check reads the first number in that element, even when it is written like `$1,299.00`, `1.299,00 €`, `1 299,50 kr` or `12,5 %`.
+In **Add / Edit watch → Numbers to track**, enter a CSS selector for the element that shows a price, stock count, rating, and so on. Every check reads the first number in that element, even when it is written like `$1,299.00`, `1.299,00 €`, `1 299,50 kr` or `12,5 %`.
 
 - **Chart and history.** The **Numbers** button on a watch shows a chart plus lowest / highest / change since first reading. A reading is stored only when the value *changes* (up to 2,000 per number), and the chart runs a step line to the last check.
 - **Alerts per number:** any change, drops **below** X, rises **above** X (fires when the value *crosses* the line, not on every check below it), or chart only.
@@ -80,11 +74,11 @@ In **Add / Edit watch → Numbers to track** (or *Pick regions visually → Trac
 2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`), email and password, and allow access to that one address when the browser asks.
 3. On any page click the toolbar button: **Start watching** adds it, or **Pick on the page…** opens an overlay where you click to *Watch*, *Ignore* or *Track number* (↑ / ↓ selects a larger / smaller area, Esc cancels). Reopen the popup to finish. If the page is already watched, picks are merged into the existing watch.
 
-Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and stores the server session in the browser cookie jar rather than saving your password. Use `https://` for any server that is not on your own computer. The server renders pages in a fresh, isolated headless browser context for each check.
+Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and stores the server session in the browser cookie jar rather than saving your password. Use `https://` for any server that is not on your own computer. The extension can create selectors from the current page; scheduled checks fetch only the page's initial HTML and do not execute JavaScript.
 
 ## The four design questions
 
-**1. Is a site outage or CAPTCHA a change?** No. `browser.js` classifies every fetch as `ok`, `error` (5xx, DNS, timeout, empty page) or `blocked` (401/403/429, CAPTCHA or bot-challenge page). Errors and blocks never create a snapshot or a hash comparison. After 2 consecutive failures the user gets a separate *status* alert (once), and a "reachable again" alert on recovery. Blocked sites are not retried; they back off for at least an hour.
+**1. Is a site outage or CAPTCHA a change?** No. `scraper.js` classifies every fetch as `ok`, `error` (5xx, DNS, timeout, empty page) or `blocked` (401/403/429, CAPTCHA or bot-challenge page). Errors and blocks never create a snapshot or a hash comparison. After 2 consecutive failures the user gets a separate *status* alert (once), and a "reachable again" alert on recovery. Blocked sites are not retried; they back off for at least an hour.
 
 **2. If 200 users watch the same URL, is it fetched 200 times?** No. URLs are normalised into one `pages` row; users subscribe through `watches`. A job fetches the page once (using the shortest interval among its watchers), and every watcher's regions, ignore rules and sensitivity are applied to that single result.
 
@@ -94,10 +88,10 @@ Notes: the extension only asks for access to your server's address (not all site
 
 ## Notes and known limits
 
-- **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every browser request (including redirects and subresources) is re-checked (SSRF guard). Media and font requests are skipped. A determined DNS-rebinding attacker could still race the check; use network egress controls for a public deployment.
+- **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every redirect is re-checked (SSRF guard). A determined DNS-rebinding attacker could still race the check; use network egress controls for a public deployment.
 - Dashboard sessions use an HttpOnly cookie stored server-side and remain valid until sign-out. Set `BASE_URL` to your HTTPS URL when deploying publicly.
-- Screenshots are capped at 1366×6000 px. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
+- Screenshots are not generated in HTTP-only mode. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view text comparisons.
 - Page requests identify the service with `WebsiteChangeDetector/1.1` by default. Configure `SCRAPER_USER_AGENT` with a contact URL if you operate a public deployment. HTTP 429 responses are treated as a block and `Retry-After` is honored; use an interval the target permits and request access from the site operator if needed.
 - Old versions are pruned to the latest 100 per watch.
-- Scraping behavior: Playwright renders the page in Chromium; configure the browser install location as described above for Render deployments.
+- Scraping behavior: Axios fetches the initial HTML and Cheerio extracts text. Client-side JavaScript content, screenshots, screenshot diffs, and server-side visual picking are unavailable; enter CSS selectors manually.
 - Upgrading from the previous version: just replace the files and restart. The database migrates itself (adds the `ai_summary` column and the `trackers` / `readings` tables) and existing watches keep working.

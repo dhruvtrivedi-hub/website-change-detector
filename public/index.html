@@ -52,23 +52,8 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 .login:before{content:"WEB INTELLIGENCE";font-size:10px;letter-spacing:.2em;color:var(--accent2);font-weight:700}.login h1{margin:0;font-size:28px;letter-spacing:-.05em}.login p{margin:0;color:#9eacc1;font-size:14px}
 .login form{display:grid;gap:15px}
 .auth-switch{margin:0!important;text-align:center;color:var(--muted);font-size:13px!important}.auth-switch button{border:0;padding:0;background:none;color:#a99fff;font-weight:700;cursor:pointer}.auth-switch button:hover{color:#c4bcff;text-decoration:underline}
-/* picker */
-.pickbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-.pickbar label{display:flex;gap:6px;align-items:center;font-weight:400}
-.pickwrap{position:relative;border:1px solid var(--rule);background:#0b1321;line-height:0;border-radius:10px;overflow:hidden}
-.pickwrap img{width:100%;display:block}
-.box{position:absolute;border:1px solid transparent;cursor:pointer;background:transparent}
-.box:hover{border-color:var(--accent);background:rgba(43,74,203,.10)}
-.box.w{border:2px solid var(--ok);background:rgba(19,121,74,.18)}
-.box.i{border:2px solid var(--err);background:rgba(180,35,24,.20)}
-.chips{display:flex;flex-wrap:wrap;gap:6px;line-height:1.3}
-.chip{font:12px var(--mono);padding:3px 8px;border-radius:5px;display:flex;gap:6px;align-items:center;cursor:pointer;max-width:100%}
-.chip.w{background:var(--ok-bg);color:var(--ok)}.chip.i{background:var(--err-bg);color:var(--err)}
-.hint{font-size:13px;color:var(--muted);min-height:20px;font-family:var(--mono);word-break:break-all}
 .tl{width:100%;border-collapse:collapse}.tl td{padding:8px 6px;border-bottom:1px solid var(--rule)}
 /* tracked numbers */
-.box.t{border:2px solid #b25e00;background:rgba(178,94,0,.2)}
-.chip.t{background:#fff1d6;color:#9a5b00}
 .trk{display:grid;gap:8px}.trk-h{font-weight:600;font-size:14px}.trk-h small{font-weight:400;color:var(--muted)}
 .trkrow{display:grid;grid-template-columns:1fr 170px 90px auto;gap:6px;border:1px solid var(--rule);border-radius:6px;padding:8px}
 .trkrow .sel{grid-column:1/-1;font:12px var(--mono)}
@@ -107,7 +92,6 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
   .dlg-b{max-height:calc(100dvh - 150px);padding:17px}
   .dlg-h{padding:15px 17px}.dlg-f{padding:12px 17px;flex-wrap:wrap}
   .dlg-f .btn{flex:0 1 auto}
-  .pickbar{gap:10px}.pickwrap img{max-width:100%;height:auto}
   .trkrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .stats{gap:8px 14px}
 }
@@ -130,7 +114,6 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 <div id="app"></div>
 
 <dialog id="dlgWatch"></dialog>
-<dialog id="dlgPicker" class="wide"></dialog>
 <dialog id="dlgSettings"></dialog>
 <dialog id="dlgTimeline" class="wide"></dialog>
 <dialog id="dlgNumbers" class="wide"></dialog>
@@ -296,11 +279,11 @@ function openWatch(w) {
       </div>
       <label>Regions to watch <small>CSS selectors, one per line. Empty = whole page.</small><textarea id="fWatch" spellcheck="false">${esc((w?.watch_selectors || []).join('\n'))}</textarea></label>
       <label>Regions to ignore <small>CSS selectors, one per line.</small><textarea id="fIgnore" spellcheck="false">${esc((w?.ignore_selectors || []).join('\n'))}</textarea></label>
-      <div><button type="button" class="btn" id="fPick">Pick regions visually</button></div>
+      <small class="note">Visual picking is unavailable in HTTP-only mode; enter CSS selectors above.</small>
       <div class="trk">
         <div class="trk-h">Numbers to track <small>Prices, stock counts, ratings… Each gets a chart and its own alerts. They are left out of the text comparison.</small></div>
         <div id="fTrk" class="trk"></div>
-        <div><button type="button" class="btn small" id="fAddTrk">Add a number by CSS selector</button> <small style="color:var(--muted)">or use “Pick regions visually” → Track number</small></div>
+        <div><button type="button" class="btn small" id="fAddTrk">Add a number by CSS selector</button></div>
       </div>
       <label>Only alert when these words appear in the change <small>Optional, comma separated.</small><input type="text" id="fKw" placeholder="in stock, price" value="${esc(w?.keyword || '')}"></label>
       <label class="check"><input type="checkbox" id="fEmail" ${w?.notify_email !== false ? 'checked' : ''}> Email me</label>
@@ -316,7 +299,6 @@ function openWatch(w) {
   paintTrackers();
   $('#fAddTrk').onclick = () => { trk.push({ label: 'Number ' + (trk.length + 1), selector: '', mode: 'any', threshold: '' }); paintTrackers(); };
   $('#fCancel').onclick = () => d.close();
-  $('#fPick').onclick = openPicker;
   $("#watchForm").onsubmit = async (ev) => {
     ev.preventDefault();
     const lines = (id) => $(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -355,100 +337,6 @@ function paintTrackers() {
     if (inp.dataset.k === 'mode') inp.onchange = () => { trk[Number(inp.dataset.i)].mode = inp.value; paintTrackers(); };
   });
   el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { trk.splice(Number(b.dataset.rm), 1); paintTrackers(); }));
-}
-
-// ---------- visual picker ----------
-let pick = { watch: [], ignore: [], track: [], mode: 'w' };
-async function openPicker() {
-  const url = editing?.url || $('#fUrl').value.trim();
-  if (!url) { $('#fErr').textContent = 'Enter the page URL first.'; return; }
-  const d = $('#dlgPicker');
-  pick = {
-    watch: $('#fWatch').value.split('\n').map((s) => s.trim()).filter(Boolean),
-    ignore: $('#fIgnore').value.split('\n').map((s) => s.trim()).filter(Boolean),
-    track: trk.map((t) => t.selector.trim()).filter(Boolean),
-    mode: 'w',
-  };
-  d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p>Loading a preview of the page. This can take up to 30 seconds.</p></div>
-    <div class="dlg-f"><button class="btn" id="pCancel0">Cancel</button></div>`;
-  $('#pCancel0').onclick = () => d.close();
-  d.showModal();
-  let data;
-  try { data = await api('/picker', { method: 'POST', body: { url } }); }
-  catch (e) {
-    d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p class="err">${esc(e.message)}</p></div>
-      <div class="dlg-f"><button class="btn" id="pClose">Close</button></div>`;
-    $('#pClose').onclick = () => d.close(); return;
-  }
-  d.innerHTML = `<div class="dlg-h">Pick regions</div>
-  <div class="dlg-b">
-    <div class="pickbar">
-      <label><input type="radio" name="pm" value="w" checked> Watch this area</label>
-      <label><input type="radio" name="pm" value="i"> Ignore this area</label>
-      <label><input type="radio" name="pm" value="t"> Track number</label>
-      <span style="color:var(--muted);font-size:13px">Click an area to add it. Click again to remove it. Smaller areas sit on top of larger ones.</span>
-    </div>
-    <div class="hint" id="pHint">&nbsp;</div>
-    <div class="pickwrap" id="pWrap"><img alt="Page preview" src="data:image/png;base64,${data.screenshot}"></div>
-    <div class="chips" id="pChips"></div>
-  </div>
-  <div class="dlg-f"><button class="btn" id="pCancel">Cancel</button><button class="btn primary" id="pUse">Use these regions</button></div>`;
-  d.querySelectorAll('input[name=pm]').forEach((r) => (r.onchange = () => (pick.mode = r.value)));
-  const wrap = $('#pWrap');
-  for (const el of data.elements) {   // already sorted largest first, so smallest is on top
-    const b = document.createElement('div');
-    b.className = 'box'; b.dataset.sel = el.selector;
-    b.style.cssText = `left:${(el.x / data.width) * 100}%;top:${(el.y / data.height) * 100}%;width:${(el.w / data.width) * 100}%;height:${(el.h / data.height) * 100}%`;
-    b.onmouseenter = () => ($('#pHint').textContent = `${el.tag}: ${el.text || '(no text)'}  [${el.selector}]`);
-    b.onclick = (ev) => {
-      ev.stopPropagation();
-      if (pick.mode === 't' && !pick.track.includes(el.selector) && !/\d/.test(el.text)) {
-        $('#pHint').textContent = 'No digits in that area. Click the smaller element that shows the number.';
-        return;
-      }
-      toggle(el.selector);
-    };
-    wrap.appendChild(b);
-  }
-  paintPick();
-  $('#pCancel').onclick = () => d.close();
-  $('#pUse').onclick = () => {
-    $('#fWatch').value = pick.watch.join('\n');
-    $('#fIgnore').value = pick.ignore.join('\n');
-    // keep existing rows (and their history) for selectors that are still picked; add new ones
-    const known = trk.filter((t) => t.selector.trim() && pick.track.includes(t.selector.trim()));
-    const fresh = pick.track.filter((sel) => !known.some((t) => t.selector.trim() === sel))
-      .map((sel, n) => ({ label: 'Number ' + (known.length + n + 1), selector: sel, mode: 'any', threshold: '' }));
-    trk = [...known, ...trk.filter((t) => !t.selector.trim()), ...fresh];
-    paintTrackers();
-    d.close();
-  };
-}
-function toggle(sel) {
-  const lists = { w: pick.watch, i: pick.ignore, t: pick.track };
-  const list = lists[pick.mode];
-  for (const [m, other] of Object.entries(lists)) {
-    if (m === pick.mode) continue;
-    const o = other.indexOf(sel); if (o >= 0) other.splice(o, 1);
-  }
-  const i = list.indexOf(sel);
-  if (i >= 0) list.splice(i, 1); else list.push(sel);
-  paintPick();
-}
-function paintPick() {
-  document.querySelectorAll('#pWrap .box').forEach((b) => {
-    b.classList.toggle('w', pick.watch.includes(b.dataset.sel));
-    b.classList.toggle('i', pick.ignore.includes(b.dataset.sel));
-    b.classList.toggle('t', pick.track.includes(b.dataset.sel));
-  });
-  $('#pChips').innerHTML =
-    pick.watch.map((s, k) => `<span class="chip w" data-k="w${k}" title="Remove">watch ${esc(s)} ×</span>`).join('') +
-    pick.ignore.map((s, k) => `<span class="chip i" data-k="i${k}" title="Remove">ignore ${esc(s)} ×</span>`).join('') +
-    pick.track.map((s, k) => `<span class="chip t" data-k="t${k}" title="Remove">number ${esc(s)} ×</span>`).join('');
-  document.querySelectorAll('#pChips .chip').forEach((c) => (c.onclick = () => {
-    const list = { w: pick.watch, i: pick.ignore, t: pick.track }[c.dataset.k[0]];
-    list.splice(Number(c.dataset.k.slice(1)), 1); paintPick();
-  }));
 }
 
 // ---------- settings ----------
