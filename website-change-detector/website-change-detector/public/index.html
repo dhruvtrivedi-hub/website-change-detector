@@ -161,7 +161,7 @@ async function refresh() {
   el.innerHTML = `<table><thead><tr><th>Page</th><th>Status</th><th>Last checked</th><th>Last changed</th><th>Every</th><th></th></tr></thead><tbody>${
     watches.map((w) => {
       const [label, cls] = STATUS[w.status] || STATUS.pending;
-      const note = w.status === 'error' || w.status === 'blocked' ? w.last_error : w.noisy ? 'Changes on every check: alerts paused. Ignore the changing area.' : '';
+      const note = w.status === 'error' || w.status === 'blocked' ? w.last_error : '';
       return `<tr>
         <td><div class="name">${esc(w.name)}</div><div class="url">${esc(w.url)}</div>${
           w.watch_selectors.length ? `<div class="note">Watching ${w.watch_selectors.length} region(s)</div>` : ''}</td>
