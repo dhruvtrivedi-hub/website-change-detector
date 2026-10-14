@@ -4,11 +4,8 @@ Monitors public web pages in a headless browser (Playwright) and alerts you to m
 
 ## Run it
 
-<<<<<<< HEAD
 Requires **Node.js 22.13 or newer**. Storage uses Node's built-in SQLite, so there are no native modules to compile (no Visual Studio / build tools needed).
 
-=======
->>>>>>> e1b2ab708d06aec7986916745c6c203a2acc5116
 ```bash
 npm install
 npm run setup          # downloads Chromium for Playwright
@@ -19,18 +16,17 @@ Optional environment variables:
 
 | Variable | Purpose |
 |---|---|
+| `APP_PASSWORD` | Required shared password used to sign in to the dashboard and browser extension |
+| `APP_EMAIL` | Optional notification email for the shared application account |
 | `PORT`, `BASE_URL` | Server port and the public URL used in alert diff links |
 | `SMTP_URL`, `MAIL_FROM` | Email alerts, e.g. `smtps://user:pass@smtp.example.com`. Without it, emails are printed to the log |
 | `SECRET` | Signs diff links and encrypts stored webhook/bot tokens (auto-generated in `data/secret.key` if unset) |
 | `DATA_DIR` | SQLite DB + screenshots (default `./data`) |
 | `CONCURRENCY` | Parallel browser checks (default 3) |
-<<<<<<< HEAD
 | `ANTHROPIC_API_KEY` | Turns on AI-written change summaries (see below). Without it the built-in summary is used |
 | `AI_MODEL` | Model used for summaries (default `claude-haiku-5-5`, a small fast model is plenty) |
-=======
->>>>>>> e1b2ab708d06aec7986916745c6c203a2acc5116
 
-Open the dashboard, create an access token, add a URL, and (optionally) add a Discord webhook or Telegram bot under **Alert settings**.
+Set `APP_PASSWORD` in the server environment, then open the dashboard and sign in with that password. Add a URL and (optionally) configure a Discord webhook or Telegram bot under **Alert settings**. Existing watches are migrated to the shared application account when the server starts.
 
 ## Requirement map
 
@@ -45,7 +41,6 @@ Open the dashboard, create an access token, add a URL, and (optionally) add a Di
 | 7 | Email + Telegram/Discord, summary + diff link, no duplicates, daily digest | `alerts.js` |
 | 8 | Version timeline + dashboard (last checked / changed / status) | `public/index.html` |
 
-<<<<<<< HEAD
 Bonus included: keyword-only alerts, per-page RSS feed, **AI change summaries**, **number tracking with charts and threshold alerts**, and a **browser extension helper**. Each is described below.
 
 ## AI change summaries
@@ -74,13 +69,10 @@ In **Add / Edit watch → Numbers to track** (or *Pick regions visually → Trac
 `extension/` is a Manifest V3 extension for Chrome, Edge, Brave and other Chromium browsers (not tested in Firefox). It lets you add the page you are looking at, and pick regions or numbers by clicking on the live page, without copying URLs or CSS selectors by hand.
 
 1. Open `chrome://extensions`, enable **Developer mode**, **Load unpacked**, and choose the `extension` folder.
-2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`) and your access token, and allow access to that one address when the browser asks.
+2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`) and the shared application password, and allow access to that one address when the browser asks.
 3. On any page click the toolbar button: **Start watching** adds it, or **Pick on the page…** opens an overlay where you click to *Watch*, *Ignore* or *Track number* (↑ / ↓ selects a larger / smaller area, Esc cancels). Reopen the popup to finish. If the page is already watched, picks are merged into the existing watch.
 
-Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and keeps the token in the browser's extension storage. Use `https://` for any server that is not on your own computer. The server renders the page in its own fresh headless browser, so a selector built from a page you are logged into, or that differs for you (cookie banners, personalisation, A/B tests), may not match there. After adding, use **Check now** and look at the dashboard; the number or region will show a warning if it can't be found.
-=======
-Bonus included: keyword-only alerts, per-page RSS feed, a heuristic one-line change summary (`summarize()` in `diff.js` is the place to plug in an LLM). Not included: number tracking with charts, browser extension.
->>>>>>> e1b2ab708d06aec7986916745c6c203a2acc5116
+Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and keeps the application password in the browser's extension storage. Use `https://` for any server that is not on your own computer. The server renders the page in its own fresh headless browser, so a selector built from a page you are logged into, or that differs for you (cookie banners, personalisation, A/B tests), may not match there. After adding, use **Check now** and look at the dashboard; the number or region will show a warning if it can't be found.
 
 ## The four design questions
 
@@ -95,13 +87,9 @@ Bonus included: keyword-only alerts, per-page RSS feed, a heuristic one-line cha
 ## Notes and known limits
 
 - **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every sub-request the browser makes is re-checked (SSRF guard). A determined DNS-rebinding attacker could still race the check; for a public deployment, also run the browser in a network-isolated container.
-- Auth is a simple per-user bearer token. Put the app behind HTTPS and swap in real accounts before exposing it publicly.
+- Dashboard sessions use an HttpOnly persistent cookie. Configure a strong `APP_PASSWORD` and set `BASE_URL` to your HTTPS URL when deploying publicly.
 - Screenshots are capped at 1366×6000 px. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
 - The service sends a normal Chrome user agent. Respect each site's terms of service and robots rules for the pages you monitor.
 - Old versions are pruned to the latest 100 per watch.
-<<<<<<< HEAD
 - Testing status: there was no network access to install the dependencies here, so the full stack (real Express, Cheerio and Playwright rendering of live sites) has **not** been run together. What was tested: the noise filter, number parsing (`npm test`), the database migration from the previous version, number tracking and the AI-summary path against a real SQLite database, the new API routes and the worker loop with stand-ins for the browser and HTML parser, the dashboard and extension in a real Chromium with mocked servers. The first `npm install && npm start` is still its first real end-to-end run.
 - Upgrading from the previous version: just replace the files and restart. The database migrates itself (adds the `ai_summary` column and the `trackers` / `readings` tables) and existing watches keep working.
-=======
-- I could not install dependencies or run the full stack in my sandbox (no network), so I syntax-checked every file and tested the noise filter, but the first `npm install && npm start` run is its first real test.
->>>>>>> e1b2ab708d06aec7986916745c6c203a2acc5116

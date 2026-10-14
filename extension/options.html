@@ -7,12 +7,12 @@
 </head>
 <body class="opts">
 <h1>Change Detector Helper</h1>
-<p class="muted">Connect the extension to your Change Detector server. Create an access token in the dashboard first (it is shown once when you sign up).</p>
+<p class="muted">Connect the extension to your Change Detector server using the shared application password configured on that server.</p>
 <label>Server address
   <input type="url" id="server" placeholder="http://localhost:3000" autocomplete="off">
 </label>
-<label>Access token
-  <input type="password" id="token" autocomplete="off">
+<label>Application password
+  <input type="password" id="password" autocomplete="current-password">
 </label>
 <div id="warn" class="warn" hidden></div>
 <div class="actions"><button class="primary" id="save">Save and test connection</button></div>

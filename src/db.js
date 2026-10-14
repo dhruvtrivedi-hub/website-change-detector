@@ -59,6 +59,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL
 );
 
+-- Browser sessions have no server-side expiration; they remain valid until logout or removal.
+CREATE TABLE IF NOT EXISTS sessions (
+  session_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
 -- One row per distinct URL: the page is fetched ONCE per cycle no matter how many users watch it.
 CREATE TABLE IF NOT EXISTS pages (
   id INTEGER PRIMARY KEY,

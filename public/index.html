@@ -50,6 +50,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 .err{color:var(--err);font-size:13px;margin-right:auto}
 .login{max-width:460px;margin:10vh auto;background:linear-gradient(150deg,rgba(20,31,50,.98),rgba(13,22,37,.98));border:1px solid #2b3952;border-radius:22px;padding:36px;display:grid;gap:17px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:rise .45s ease both}
 .login:before{content:"WEB INTELLIGENCE";font-size:10px;letter-spacing:.2em;color:var(--accent2);font-weight:700}.login h1{margin:0;font-size:28px;letter-spacing:-.05em}.login p{margin:0;color:#9eacc1;font-size:14px}
+.login form{display:grid;gap:15px}
 /* picker */
 .pickbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .pickbar label{display:flex;gap:6px;align-items:center;font-weight:400}
@@ -136,21 +137,25 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let token = localStorage.getItem('wcd_token');
+let authenticated = false;
 let me = null, watches = [], editing = null, pollTimer = null;
 
 async function api(path, opts = {}) {
   const r = await fetch('/api' + path, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401 && token) { logout(); throw new Error('Signed out'); }
+  if (r.status === 401 && authenticated) { authenticated = false; clearInterval(pollTimer); renderLogin(); }
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
-function logout() { localStorage.removeItem('wcd_token'); token = null; clearInterval(pollTimer); render(); }
+async function logout() {
+  try { await api('/logout', { method: 'POST' }); } catch {}
+  authenticated = false; clearInterval(pollTimer); renderLogin();
+}
 
 function ago(ts) {
   if (!ts) return '—';
@@ -166,7 +171,7 @@ const STATUS = { ok: ['OK', 'b-ok'], error: ['Error', 'b-error'], blocked: ['Blo
 
 // ---------- screens ----------
 function render() {
-  if (!token) return renderLogin();
+  if (!authenticated) return renderLogin();
   renderMain();
 }
 
@@ -174,26 +179,27 @@ function renderLogin() {
   $('#app').innerHTML = `
   <div class="login">
     <h1>Change Detector</h1>
-    <p>Get an alert when a page changes in a way that matters. Enter your email to create an access token, or paste one you already have.</p>
-    <label>Email <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
-    <button class="btn primary" id="lgReg">Create access token</button>
-    <label>Existing token <input id="lgTok" type="password" autocomplete="off"></label>
-    <button class="btn" id="lgUse">Sign in with token</button>
+    <p>Sign in with the application password configured for this server.</p>
+    <form id="loginForm">
+      <label>Application password <input id="lgPassword" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
+      <button class="btn primary" id="lgLogin" type="submit">Sign in</button>
+    </form>
     <div class="err" id="lgErr"></div>
   </div>`;
-  $('#lgReg').onclick = async () => {
+  $('#loginForm').onsubmit = async (event) => {
+    event.preventDefault();
     try {
-      const r = await api('/register', { method: 'POST', body: { email: $('#lgEmail').value } });
-      token = r.token; localStorage.setItem('wcd_token', token);
-      alert('Your access token (save it, it is shown once):\n\n' + token);
+      await api('/login', { method: 'POST', body: { password: $('#lgPassword').value } });
+      authenticated = true;
       render();
     } catch (e) { $('#lgErr').textContent = e.message; }
   };
-  $('#lgUse').onclick = async () => {
-    token = $('#lgTok').value.trim();
-    try { await api('/me'); localStorage.setItem('wcd_token', token); render(); }
-    catch (e) { token = null; $('#lgErr').textContent = 'That token was not recognised.'; }
-  };
+}
+
+async function init() {
+  try { await api('/me'); authenticated = true; }
+  catch { authenticated = false; }
+  render();
 }
 
 async function renderMain() {
@@ -561,7 +567,7 @@ async function openNumbers(w) {
   $('#nmClose').onclick = () => d.close();
 }
 
-render();
+init();
 </script>
 </body>
 </html>

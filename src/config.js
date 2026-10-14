@@ -21,6 +21,8 @@ export const config = {
   baseUrl: (env.BASE_URL || `http://localhost:${port}`).replace(/\/$/, ''),
   dataDir,
   secret: loadSecret(),
+  appPassword: env.APP_PASSWORD || '',
+  appEmail: env.APP_EMAIL || '',
 
   // Email (optional). Example: smtps://user:pass@smtp.example.com
   smtpUrl: env.SMTP_URL || '',
