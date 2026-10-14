@@ -1,6 +1,6 @@
 # Website Change Detector
 
-Monitors public web pages with Node.js HTTP requests and Cheerio, then alerts you to meaningful changes while ignoring noise. It does not install or launch a browser.
+Monitors public web pages in a headless Chromium browser with Playwright and alerts you to meaningful changes while ignoring noise.
 
 ## Run it
 
@@ -8,8 +8,18 @@ Requires **Node.js 22.13 or newer**. Storage uses Node's built-in SQLite, so the
 
 ```bash
 npm install
-npm start              # http://localhost:3000
+npm run setup          # downloads the Playwright Chromium binary
+npm start               # http://localhost:3000
 ```
+
+### Deploy on Render
+
+Create a **Web Service** from this repository and use these commands:
+
+- **Build command:** `npm install && PLAYWRIGHT_BROWSERS_PATH=0 npm run setup`
+- **Start command:** `PLAYWRIGHT_BROWSERS_PATH=0 npm start`
+
+Set `PLAYWRIGHT_BROWSERS_PATH=0` in the Render environment as well. This stores the Chromium binary inside the project’s `node_modules/playwright-core/.local-browsers` directory rather than a system-wide browser directory, so the build only needs write access to the app workspace. Do not add `--with-deps` to the install command; that attempts to install operating-system packages and requires elevated permissions.
 
 Optional environment variables:
 
@@ -30,12 +40,12 @@ Open the dashboard and choose **Create an account** with your email address and 
 
 | # | Requirement | Where |
 |---|---|---|
-| 1 | URL, name, 15 min–24 h interval, lightweight HTTP fetch | `server.js` (validation), `browser.js` |
+| 1 | URL, name, 15 min–24 h interval, headless Chromium render | `server.js` (validation), `browser.js` |
 | 2 | Scheduler, job queue, timeouts, retries, public pages only | `worker.js` (`schedulerTick`), `queue.js`, `util/ssrf.js` |
-| 3 | Save extracted text; new snapshot only when hash changes | `worker.js` (`processWatch`) |
+| 3 | Save rendered text + screenshot; new snapshot only when hash changes | `worker.js` (`processWatch`) |
 | 4 | Noise filtering + sensitivity | `noise.js`, `extract.js`, `diff.js` (`isSignificant`) |
-| 5 | CSS selectors and ignore regions (entered in the watch form) | `public/index.html`, `extract.js` |
-| 6 | Text diff and side-by-side text versions | `diff.js`, `/d/...` pages in `server.js` |
+| 5 | Visual picker for watch and ignore regions, saved as CSS selectors | `public/index.html`, `browser.js` |
+| 6 | Text diff, highlighted screenshot diff, and side-by-side versions | `diff.js`, `/d/...` pages in `server.js` |
 | 7 | Email + Telegram/Discord, summary + diff link, no duplicates, daily digest | `alerts.js` |
 | 8 | Version timeline + dashboard (last checked / changed / status) | `public/index.html` |
 
@@ -70,7 +80,7 @@ In **Add / Edit watch → Numbers to track** (or *Pick regions visually → Trac
 2. Open the extension's settings (it opens on first use), enter your server address (for example `http://localhost:3000`), email and password, and allow access to that one address when the browser asks.
 3. On any page click the toolbar button: **Start watching** adds it, or **Pick on the page…** opens an overlay where you click to *Watch*, *Ignore* or *Track number* (↑ / ↓ selects a larger / smaller area, Esc cancels). Reopen the popup to finish. If the page is already watched, picks are merged into the existing watch.
 
-Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and stores the server session in the browser cookie jar rather than saving your password. Use `https://` for any server that is not on your own computer. The server fetches initial HTML without executing JavaScript, so selectors for content that appears only after client-side rendering will not match. Visual region picking is unavailable; enter CSS selectors in the watch form.
+Notes: the extension only asks for access to your server's address (not all sites), only touches the current tab when you press the button, and stores the server session in the browser cookie jar rather than saving your password. Use `https://` for any server that is not on your own computer. The server renders pages in a fresh, isolated headless browser context for each check.
 
 ## The four design questions
 
@@ -84,10 +94,10 @@ Notes: the extension only asks for access to your server's address (not all site
 
 ## Notes and known limits
 
-- **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every redirect is re-checked (SSRF guard). Page subresources are not fetched. A determined DNS-rebinding attacker could still race the check; use network egress controls for a public deployment.
+- **Public pages only:** URLs with credentials, `localhost` and private/link-local IPs are rejected, and every browser request (including redirects and subresources) is re-checked (SSRF guard). Media and font requests are skipped. A determined DNS-rebinding attacker could still race the check; use network egress controls for a public deployment.
 - Dashboard sessions use an HttpOnly cookie stored server-side and remain valid until sign-out. Set `BASE_URL` to your HTTPS URL when deploying publicly.
-- This lightweight scraper does not execute page JavaScript or produce screenshots. Sites that render all content in the browser may return little or no monitorable text. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
+- Screenshots are capped at 1366×6000 px. Diff links are signed (HMAC) but not login-protected, so anyone with the link can view that comparison.
 - Page requests identify the service with `WebsiteChangeDetector/1.1` by default. Configure `SCRAPER_USER_AGENT` with a contact URL if you operate a public deployment. HTTP 429 responses are treated as a block and `Retry-After` is honored; use an interval the target permits and request access from the site operator if needed.
 - Old versions are pruned to the latest 100 per watch.
-- Scraping behavior: this version uses built-in `fetch` and Cheerio; no Chromium download or system browser is needed. JavaScript-rendered content, screenshots, and visual picking are unavailable; use CSS selectors on content present in the server-returned HTML.
+- Scraping behavior: Playwright renders the page in Chromium; configure the browser install location as described above for Render deployments.
 - Upgrading from the previous version: just replace the files and restart. The database migrates itself (adds the `ai_summary` column and the `trackers` / `readings` tables) and existing watches keep working.

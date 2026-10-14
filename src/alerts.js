@@ -134,14 +134,41 @@ export async function sendDigests() {
       .all(u.id);
     if (!items.length) continue;
 
-    const text =
-      `Daily digest: ${items.length} change${items.length === 1 ? '' : 's'}\n\n` +
-      items.map((i) => `• ${i.name}: ${i.summary}\n  ${i.link}`).join('\n\n');
     const targets = channelsFor(u, { notify_email: 1, notify_webhook: 1 });
-    const results = await Promise.allSettled(targets.map((c) => c.send('Daily digest', text)));
-    if (!targets.length || results.some((r) => r.status === 'fulfilled')) {
+    if (!targets.length) {
       const mark = db.prepare('UPDATE alerts SET sent_at=? WHERE id=?');
       for (const i of items) mark.run(now, i.id);
+      db.prepare('UPDATE users SET last_digest_at=? WHERE id=?').run(now, u.id);
+      continue;
+    }
+
+    // Track digest delivery per channel, just like regular alerts. If one destination fails,
+    // a later retry sends only to that destination and won't duplicate successful deliveries.
+    const deliveredById = new Map(items.map((i) => [i.id, new Set(JSON.parse(i.delivered))]));
+    for (const channel of targets) {
+      const pending = items.filter((i) => !deliveredById.get(i.id).has(channel.name));
+      if (!pending.length) continue;
+      const text =
+        `Daily digest: ${pending.length} change${pending.length === 1 ? '' : 's'}\n\n` +
+        pending.map((i) => `• ${i.name}: ${i.summary}\n  ${i.link}`).join('\n\n');
+      try {
+        await channel.send('Daily digest', text);
+        for (const item of pending) {
+          deliveredById.get(item.id).add(channel.name);
+          db.prepare('UPDATE alerts SET delivered=? WHERE id=?')
+            .run(JSON.stringify([...deliveredById.get(item.id)]), item.id);
+        }
+      } catch (e) {
+        console.error(`daily digest for user ${u.id}: ${channel.name} failed:`, e?.message || e);
+      }
+    }
+
+    const allDelivered = items.every((item) =>
+      targets.every((channel) => deliveredById.get(item.id).has(channel.name)),
+    );
+    if (allDelivered) {
+      const mark = db.prepare('UPDATE alerts SET sent_at=? WHERE id=?');
+      for (const item of items) mark.run(now, item.id);
       db.prepare('UPDATE users SET last_digest_at=? WHERE id=?').run(now, u.id);
     }
   }
