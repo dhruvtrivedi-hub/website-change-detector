@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Change Detector Helper: settings</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body class="opts">
+<h1>Change Detector Helper</h1>
+<p class="muted">Connect the extension to your Change Detector server. Create an access token in the dashboard first (it is shown once when you sign up).</p>
+<label>Server address
+  <input type="url" id="server" placeholder="http://localhost:3000" autocomplete="off">
+</label>
+<label>Access token
+  <input type="password" id="token" autocomplete="off">
+</label>
+<div id="warn" class="warn" hidden></div>
+<div class="actions"><button class="primary" id="save">Save and test connection</button></div>
+<div id="msg" class="muted" role="status"></div>
+<script src="options.js"></script>
+</body>
+</html>

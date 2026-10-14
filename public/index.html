@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Change Detector</title>
+<style>
+:root{
+  color-scheme:dark;--bg:#080d18;--panel:#101827;--ink:#edf3ff;--muted:#8e9bb1;--rule:#243149;--accent:#8b7cff;--accent2:#59d9c5;
+  --ok:#4fe0a0;--ok-bg:rgba(38,190,126,.13);--err:#ff7b86;--err-bg:rgba(255,91,111,.13);--warn:#ffc56b;--warn-bg:rgba(245,174,62,.14);--idle-bg:#202b3d;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.005em;color:var(--ink);background:radial-gradient(ellipse at 50% -18%,rgba(105,92,255,.18),transparent 38%),radial-gradient(ellipse at 100% 45%,rgba(47,203,184,.055),transparent 32%),var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+header.top{display:flex;align-items:center;gap:12px;padding:15px max(24px,calc((100vw - 1240px)/2));background:rgba(9,15,27,.82);border-bottom:1px solid rgba(142,155,177,.14);backdrop-filter:blur(18px);position:sticky;top:0;z-index:5}
+header.top h1{font-size:17px;margin:0 auto 0 0;letter-spacing:-.035em;font-weight:700;display:flex;align-items:center;gap:11px}
+header.top h1:before{content:"↗";display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:linear-gradient(140deg,#9182ff,#6554dc);color:#fff;font-size:18px;box-shadow:0 5px 24px rgba(117,99,255,.32)}
+main{max-width:1240px;margin:0 auto;padding:48px 24px 80px}
+.dash-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin:0 2px 25px;animation:rise .35s ease both}.dash-intro h2{font-size:30px;line-height:1.15;letter-spacing:-.055em;margin:9px 0 7px;color:#f2f5ff}.dash-intro p{margin:0;color:#94a2b8;font-size:14px}.eyebrow{display:flex;align-items:center;gap:8px;color:#a99fff;font-size:10px;font-weight:750;letter-spacing:.16em;text-transform:uppercase}.eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 12px rgba(89,217,197,.8)}
+.btn{border:1px solid #2b3952;background:#151f30;padding:8px 14px;border-radius:9px;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;color:#dce6f7}
+.btn:hover{border-color:#62708d;background:#1a2740;transform:translateY(-1px)}.btn:active{transform:translateY(0)}.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.btn.primary{background:linear-gradient(135deg,#9182ff,#6f5ce7);border-color:#9182ff;color:#fff;box-shadow:0 6px 20px rgba(117,99,255,.2)}.btn.primary:hover{background:linear-gradient(135deg,#a296ff,#7c6bf2);box-shadow:0 9px 28px rgba(117,99,255,.3)}
+.btn.danger{color:var(--err);border-color:rgba(255,123,134,.23);background:rgba(255,91,111,.06)}.btn.danger:hover{background:var(--err-bg);border-color:var(--err)}.btn.small{padding:6px 10px;font-size:12px;border-radius:7px}
+.tablewrap{background:linear-gradient(145deg,rgba(18,28,45,.98),rgba(14,23,38,.98));border:1px solid #26344c;border-radius:16px;overflow-x:auto;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:rise .45s ease both}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th{text-align:left;font-weight:650;font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:#8291aa;padding:15px 16px;border-bottom:1px solid var(--rule);background:rgba(255,255,255,.018)}
+td{padding:17px 16px;border-bottom:1px solid rgba(142,155,177,.11);vertical-align:middle;color:#bbc7da;font-size:13px}
+tbody tr{transition:background .2s ease,box-shadow .2s ease}tbody tr:hover{background:rgba(139,124,255,.055);box-shadow:inset 3px 0 var(--accent)}tr:last-child td{border-bottom:0}
+.name{font-weight:650;color:#eef3ff;font-size:14px;letter-spacing:-.01em}.url{font:11px/1.5 var(--mono);color:#8493aa;word-break:break-all;margin-top:3px}
+.badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.025em;border:1px solid transparent}
+.badge:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 9px currentColor}
+.b-ok{background:var(--ok-bg);color:var(--ok);border-color:rgba(79,224,160,.19)}.b-error{background:var(--err-bg);color:var(--err);border-color:rgba(255,123,134,.2)}
+.b-blocked{background:var(--warn-bg);color:var(--warn);border-color:rgba(255,197,107,.2)}.b-pending{background:var(--idle-bg);color:#a8b5ca;border-color:#303c50}
+.note{font-size:11px;color:var(--muted);margin-top:5px;max-width:260px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.empty{padding:64px 24px;text-align:center;color:var(--muted)}.empty:before{content:"◉";display:grid;place-items:center;width:52px;height:52px;margin:0 auto 14px;border:1px solid #34415a;border-radius:16px;color:var(--accent);font-size:24px;background:rgba(139,124,255,.08)}
+dialog{color:var(--ink);background:#111b2b;border:1px solid #33415a;border-radius:16px;padding:0;max-width:640px;width:calc(100% - 24px);box-shadow:0 28px 90px rgba(0,0,0,.62);animation:rise .2s ease both}
+dialog::backdrop{background:rgba(3,7,14,.76);backdrop-filter:blur(5px)}
+dialog.wide{max-width:1000px}
+.dlg-h{padding:18px 22px;border-bottom:1px solid var(--rule);font-weight:700;font-size:17px;letter-spacing:-.025em;background:rgba(255,255,255,.018)}
+.dlg-b{padding:22px;display:grid;gap:16px;max-height:72vh;overflow:auto}
+.dlg-f{padding:15px 22px;border-top:1px solid var(--rule);display:flex;gap:8px;justify-content:flex-end;align-items:center;background:rgba(255,255,255,.015)}
+label{display:grid;gap:6px;font-weight:600;font-size:13px;color:#dce6f7}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=url],input[type=email],input[type=password],input[type=number],select,textarea{border:1px solid #33415a;border-radius:9px;padding:10px 12px;background:#0b1321;width:100%;font-weight:400;color:var(--ink);transition:border-color .18s,box-shadow .18s}
+input::placeholder,textarea::placeholder{color:#62718a}select option{background:#111b2b;color:var(--ink)}textarea{font:12px/1.55 var(--mono);min-height:72px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.check{display:flex;gap:9px;align-items:center;font-weight:400;color:#c9d4e6}.check input{accent-color:var(--accent);width:16px;height:16px}
+.err{color:var(--err);font-size:13px;margin-right:auto}
+.login{max-width:460px;margin:10vh auto;background:linear-gradient(150deg,rgba(20,31,50,.98),rgba(13,22,37,.98));border:1px solid #2b3952;border-radius:22px;padding:36px;display:grid;gap:17px;box-shadow:0 24px 70px rgba(0,0,0,.32);animation:rise .45s ease both}
+.login:before{content:"V I N N O V A T E I T  /  WEB INTELLIGENCE";font-size:10px;letter-spacing:.2em;color:var(--accent2);font-weight:700}.login h1{margin:0;font-size:28px;letter-spacing:-.05em}.login p{margin:0;color:#9eacc1;font-size:14px}
+/* picker */
+.pickbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pickbar label{display:flex;gap:6px;align-items:center;font-weight:400}
+.pickwrap{position:relative;border:1px solid var(--rule);background:#0b1321;line-height:0;border-radius:10px;overflow:hidden}
+.pickwrap img{width:100%;display:block}
+.box{position:absolute;border:1px solid transparent;cursor:pointer;background:transparent}
+.box:hover{border-color:var(--accent);background:rgba(43,74,203,.10)}
+.box.w{border:2px solid var(--ok);background:rgba(19,121,74,.18)}
+.box.i{border:2px solid var(--err);background:rgba(180,35,24,.20)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;line-height:1.3}
+.chip{font:12px var(--mono);padding:3px 8px;border-radius:5px;display:flex;gap:6px;align-items:center;cursor:pointer;max-width:100%}
+.chip.w{background:var(--ok-bg);color:var(--ok)}.chip.i{background:var(--err-bg);color:var(--err)}
+.hint{font-size:13px;color:var(--muted);min-height:20px;font-family:var(--mono);word-break:break-all}
+.tl{width:100%;border-collapse:collapse}.tl td{padding:8px 6px;border-bottom:1px solid var(--rule)}
+/* tracked numbers */
+.box.t{border:2px solid #b25e00;background:rgba(178,94,0,.2)}
+.chip.t{background:#fff1d6;color:#9a5b00}
+.trk{display:grid;gap:8px}.trk-h{font-weight:600;font-size:14px}.trk-h small{font-weight:400;color:var(--muted)}
+.trkrow{display:grid;grid-template-columns:1fr 170px 90px auto;gap:6px;border:1px solid var(--rule);border-radius:6px;padding:8px}
+.trkrow .sel{grid-column:1/-1;font:12px var(--mono)}
+.trkrow input[type=number]{border:1px solid var(--rule);border-radius:6px;padding:8px 10px;width:100%}
+.val{font-weight:600;font-variant-numeric:tabular-nums}.warn{color:var(--warn)}
+.stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:2px 0 6px}
+.stats b{color:var(--ink)}.chart{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--rule);border-radius:6px}
+.chart text{font:11px system-ui,sans-serif;fill:var(--muted)}.chart .grid{stroke:var(--rule)}
+.chart .line{fill:none;stroke:var(--accent);stroke-width:2}.chart .dot{fill:var(--accent)}.chart .thr{stroke:var(--err);stroke-dasharray:4 4}
+.numblock{display:grid;gap:4px;padding-bottom:14px;border-bottom:1px solid var(--rule)}.numblock:last-child{border-bottom:0}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:700px){header.top{padding:12px 14px;gap:7px}header.top h1{font-size:14px}header.top h1:before{width:30px;height:30px}.btn{padding:7px 9px;font-size:12px}main{padding:32px 14px 56px}.row{grid-template-columns:1fr}.login{margin:7vh 16px;padding:26px}.dlg-b{padding:17px}.trkrow{grid-template-columns:1fr 1fr}.dlg-h{padding:16px 17px}}
+@media(max-width:760px){
+  header.top{padding:12px 16px;gap:8px;flex-wrap:wrap}
+  header.top h1{flex:1 0 100%;margin:0 0 3px}
+  header.top .btn{flex:1 1 auto;min-width:0}
+  main{padding:32px 16px 56px}
+  .dash-intro{align-items:flex-start;margin-bottom:20px}.dash-intro h2{font-size:26px}
+  .tablewrap{overflow:visible;border-radius:14px}
+  table{display:block;width:100%;min-width:0}
+  thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  tbody{display:grid;gap:10px;padding:10px}
+  tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border:1px solid #283751;border-radius:12px;background:rgba(255,255,255,.018);overflow:hidden}
+  tbody tr:hover{box-shadow:inset 3px 0 var(--accent)}
+  td{min-width:0;padding:12px;border:0;border-bottom:1px solid rgba(142,155,177,.10);overflow-wrap:anywhere}
+  td:before{content:attr(data-label);display:block;margin-bottom:5px;color:#8291aa;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em}
+  td:first-child{grid-column:1/-1;padding:14px 13px;border-bottom:1px solid rgba(142,155,177,.14)}
+  td:first-child:before{display:none}
+  td:nth-child(5){border-bottom:0}
+  td:last-child{grid-column:1/-1;border-top:1px solid rgba(142,155,177,.14);border-bottom:0;padding:11px 12px}
+  td:last-child:before{content:"Actions"}
+  .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .actions .btn{min-width:0;white-space:normal}
+  .url{overflow-wrap:anywhere}
+  dialog,dialog.wide{width:calc(100% - 24px);max-width:none;max-height:calc(100dvh - 24px);margin:auto;border-radius:15px}
+  .dlg-b{max-height:calc(100dvh - 150px);padding:17px}
+  .dlg-h{padding:15px 17px}.dlg-f{padding:12px 17px;flex-wrap:wrap}
+  .dlg-f .btn{flex:0 1 auto}
+  .pickbar{gap:10px}.pickwrap img{max-width:100%;height:auto}
+  .trkrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .stats{gap:8px 14px}
+}
+@media(max-width:420px){
+  header.top{padding:10px 12px}
+  header.top .btn{font-size:11px;padding:7px 6px}
+  main{padding:25px 12px 44px}
+  .dash-intro h2{font-size:23px}
+  tbody{padding:7px;gap:8px}
+  td{padding:10px}
+  .actions{grid-template-columns:1fr 1fr}
+  .actions .btn{font-size:11px;padding:7px 6px}
+  .login{margin:5vh 12px;padding:23px}
+  .dlg-b{padding:14px}.dlg-h{padding:14px}.dlg-f{padding:11px 14px}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<dialog id="dlgWatch"></dialog>
+<dialog id="dlgPicker" class="wide"></dialog>
+<dialog id="dlgSettings"></dialog>
+<dialog id="dlgTimeline" class="wide"></dialog>
+<dialog id="dlgNumbers" class="wide"></dialog>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let token = localStorage.getItem('wcd_token');
+let me = null, watches = [], editing = null, pollTimer = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch('/api' + path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && token) { logout(); throw new Error('Signed out'); }
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function logout() { localStorage.removeItem('wcd_token'); token = null; clearInterval(pollTimer); render(); }
+
+function ago(ts) {
+  if (!ts) return '—';
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+  return Math.floor(s / 86400) + ' d ago';
+}
+const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 4 }));
+function every(min) { return min < 60 ? min + ' min' : min % 60 ? min + ' min' : (min / 60) + ' h'; }
+const STATUS = { ok: ['OK', 'b-ok'], error: ['Error', 'b-error'], blocked: ['Blocked', 'b-blocked'], pending: ['Waiting', 'b-pending'] };
+
+// ---------- screens ----------
+function render() {
+  if (!token) return renderLogin();
+  renderMain();
+}
+
+function renderLogin() {
+  $('#app').innerHTML = `
+  <div class="login">
+    <h1>Change Detector</h1>
+    <p>Get an alert when a page changes in a way that matters. Enter your email to create an access token, or paste one you already have.</p>
+    <label>Email <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+    <button class="btn primary" id="lgReg">Create access token</button>
+    <label>Existing token <input id="lgTok" type="password" autocomplete="off"></label>
+    <button class="btn" id="lgUse">Sign in with token</button>
+    <div class="err" id="lgErr"></div>
+  </div>`;
+  $('#lgReg').onclick = async () => {
+    try {
+      const r = await api('/register', { method: 'POST', body: { email: $('#lgEmail').value } });
+      token = r.token; localStorage.setItem('wcd_token', token);
+      alert('Your access token (save it, it is shown once):\n\n' + token);
+      render();
+    } catch (e) { $('#lgErr').textContent = e.message; }
+  };
+  $('#lgUse').onclick = async () => {
+    token = $('#lgTok').value.trim();
+    try { await api('/me'); localStorage.setItem('wcd_token', token); render(); }
+    catch (e) { token = null; $('#lgErr').textContent = 'That token was not recognised.'; }
+  };
+}
+
+async function renderMain() {
+  $('#app').innerHTML = `
+  <header class="top">
+    <h1>Change Detector</h1>
+    <button class="btn" id="btnSettings">Alert settings</button>
+    <button class="btn primary" id="btnAdd">Add watch</button>
+    <button class="btn" id="btnOut">Sign out</button>
+  </header>
+  <main><section class="dash-intro"><div><div class="eyebrow">Monitoring overview</div><h2>Your pages, at a glance.</h2><p>Meaningful changes surface here. The noise stays out.</p></div></section><div class="tablewrap" id="list"></div></main>`;
+  $('#btnAdd').onclick = () => openWatch(null);
+  $('#btnSettings').onclick = openSettings;
+  $('#btnOut').onclick = logout;
+  await refresh();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => refresh().catch(() => {}), 20000);
+}
+
+async function refresh() {
+  [me, watches] = await Promise.all([api('/me'), api('/watches')]);
+  const el = $('#list');
+  if (!el) return;
+  if (!watches.length) {
+    el.innerHTML = `<div class="empty">No watches yet. Add a page URL and choose how often to check it.</div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Page</th><th>Status</th><th>Last checked</th><th>Last changed</th><th>Every</th><th></th></tr></thead><tbody>${
+    watches.map((w) => {
+      const [label, cls] = STATUS[w.status] || STATUS.pending;
+      const note = w.status === 'error' || w.status === 'blocked' ? w.last_error : w.noisy ? 'Changes on every check: alerts paused. Ignore the changing area.' : '';
+      return `<tr>
+        <td data-label="Page"><div class="name">${esc(w.name)}</div><div class="url">${esc(w.url)}</div>${
+          w.watch_selectors.length ? `<div class="note">Watching ${w.watch_selectors.length} region(s)</div>` : ''}${
+          w.trackers.map((t) => `<div class="note">${esc(t.label)}: <span class="val">${fmtNum(t.last_value)}</span>${
+            t.last_error ? ` <span class="warn" title="${esc(t.last_error)}">⚠ ${esc(t.last_error)}</span>` : ''}</div>`).join('')}</td>
+        <td data-label="Status"><span class="badge ${cls}">${label}</span>${note ? `<div class="note">${esc(note)}</div>` : ''}</td>
+        <td data-label="Last checked">${ago(w.last_checked_at)}</td><td data-label="Last changed">${ago(w.last_changed_at)}</td><td data-label="Interval">${every(w.interval_min)}</td>
+        <td data-label="Actions"><div class="actions">
+          <button class="btn small" data-a="timeline" data-id="${w.id}">Timeline</button>
+          ${w.trackers.length ? `<button class="btn small" data-a="numbers" data-id="${w.id}">Numbers</button>` : ''}
+          <button class="btn small" data-a="check" data-id="${w.id}">Check now</button>
+          <button class="btn small" data-a="edit" data-id="${w.id}">Edit</button>
+          <button class="btn small" data-a="rss" data-id="${w.id}">RSS</button>
+          <button class="btn small danger" data-a="del" data-id="${w.id}">Delete</button>
+        </div></td></tr>`;
+    }).join('')}</tbody></table>`;
+  el.querySelectorAll('button[data-a]').forEach((b) => (b.onclick = () => rowAction(b.dataset.a, Number(b.dataset.id))));
+}
+
+async function rowAction(a, id) {
+  const w = watches.find((x) => x.id === id);
+  try {
+    if (a === 'edit') return openWatch(w);
+    if (a === 'timeline') return openTimeline(w);
+    if (a === 'numbers') return openNumbers(w);
+    if (a === 'rss') { await navigator.clipboard?.writeText(w.rss_url).catch(() => {}); return alert('Feed URL (copied if allowed):\n\n' + w.rss_url); }
+    if (a === 'check') { await api(`/watches/${id}/check`, { method: 'POST' }); return alert('Check queued. Results appear here shortly.'); }
+    if (a === 'del' && confirm(`Delete "${w.name}" and all its saved versions?`)) { await api(`/watches/${id}`, { method: 'DELETE' }); refresh(); }
+  } catch (e) { alert(e.message); }
+}
+
+// ---------- add / edit watch ----------
+const INTERVALS = [[15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '24 hours']];
+
+function openWatch(w) {
+  editing = w;
+  const d = $('#dlgWatch');
+  d.innerHTML = `
+  <form method="dialog" id="watchForm">
+    <div class="dlg-h">${w ? 'Edit watch' : 'Add watch'}</div>
+    <div class="dlg-b">
+      <label>Page URL <input type="url" id="fUrl" required placeholder="https://example.com/pricing" value="${esc(w?.url || '')}" ${w ? 'disabled' : ''}></label>
+      <label>Name <input type="text" id="fName" required maxlength="100" placeholder="Pricing page" value="${esc(w?.name || '')}"></label>
+      <div class="row">
+        <label>Check every <select id="fInt">${INTERVALS.map(([v, t]) => `<option value="${v}" ${(w?.interval_min || 60) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label>Sensitivity <select id="fSens">
+          <option value="high">High: any text change</option>
+          <option value="medium">Medium: skip punctuation / case edits</option>
+          <option value="low">Low: only larger changes</option></select></label>
+      </div>
+      <label>Regions to watch <small>CSS selectors, one per line. Empty = whole page.</small><textarea id="fWatch" spellcheck="false">${esc((w?.watch_selectors || []).join('\n'))}</textarea></label>
+      <label>Regions to ignore <small>CSS selectors, one per line.</small><textarea id="fIgnore" spellcheck="false">${esc((w?.ignore_selectors || []).join('\n'))}</textarea></label>
+      <div><button type="button" class="btn" id="fPick">Pick regions visually</button></div>
+      <div class="trk">
+        <div class="trk-h">Numbers to track <small>Prices, stock counts, ratings… Each gets a chart and its own alerts. They are left out of the text comparison.</small></div>
+        <div id="fTrk" class="trk"></div>
+        <div><button type="button" class="btn small" id="fAddTrk">Add a number by CSS selector</button> <small style="color:var(--muted)">or use “Pick regions visually” → Track number</small></div>
+      </div>
+      <label>Only alert when these words appear in the change <small>Optional, comma separated.</small><input type="text" id="fKw" placeholder="in stock, price" value="${esc(w?.keyword || '')}"></label>
+      <label class="check"><input type="checkbox" id="fEmail" ${w?.notify_email !== false ? 'checked' : ''}> Email me</label>
+      <label class="check"><input type="checkbox" id="fHook" ${w?.notify_webhook !== false ? 'checked' : ''}> Send to Telegram / Discord (set up in Alert settings)</label>
+      <label class="check"><input type="checkbox" id="fDigest" ${w?.digest ? 'checked' : ''}> Send changes as one daily digest instead of instantly</label>
+    </div>
+    <div class="dlg-f"><span class="err" id="fErr"></span>
+      <button type="button" class="btn" id="fCancel">Cancel</button>
+      <button type="submit" class="btn primary">${w ? 'Save changes' : 'Start watching'}</button></div>
+  </form>`;
+  $('#fSens').value = w?.sensitivity || 'medium';
+  trk = (w?.trackers || []).map((t) => ({ ...t, threshold: t.threshold ?? '' }));
+  paintTrackers();
+  $('#fAddTrk').onclick = () => { trk.push({ label: 'Number ' + (trk.length + 1), selector: '', mode: 'any', threshold: '' }); paintTrackers(); };
+  $('#fCancel').onclick = () => d.close();
+  $('#fPick').onclick = openPicker;
+  $("#watchForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const lines = (id) => $(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const body = {
+      name: $('#fName').value, interval_min: Number($('#fInt').value), sensitivity: $('#fSens').value,
+      watch_selectors: lines('#fWatch'), ignore_selectors: lines('#fIgnore'), keyword: $('#fKw').value,
+      notify_email: $('#fEmail').checked, notify_webhook: $('#fHook').checked, digest: $('#fDigest').checked,
+      trackers: trk.map((t) => ({
+        id: t.id, label: t.label, selector: t.selector.trim(), mode: t.mode,
+        threshold: t.mode === 'below' || t.mode === 'above' ? t.threshold : null,
+      })),
+    };
+    try {
+      if (w) await api(`/watches/${w.id}`, { method: 'PUT', body });
+      else await api('/watches', { method: 'POST', body: { ...body, url: $('#fUrl').value } });
+      d.close(); refresh();
+    } catch (e) { $('#fErr').textContent = e.message; }
+  };
+  d.showModal();
+}
+
+// ---------- tracked-number rows in the watch form ----------
+let trk = [];
+const TRK_MODES = [['any', 'Alert on any change'], ['below', 'Alert when it drops below'], ['above', 'Alert when it rises above'], ['none', 'Chart only, no alerts']];
+function paintTrackers() {
+  const el = $('#fTrk');
+  el.innerHTML = trk.map((t, i) => `<div class="trkrow">
+    <input type="text" data-k="label" data-i="${i}" maxlength="60" placeholder="Name, e.g. Price" aria-label="Name" value="${esc(t.label)}">
+    <select data-k="mode" data-i="${i}" aria-label="Alert type">${TRK_MODES.map(([v, l]) => `<option value="${v}" ${t.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    ${t.mode === 'below' || t.mode === 'above' ? `<input type="number" step="any" data-k="threshold" data-i="${i}" aria-label="Threshold" placeholder="Value" value="${esc(t.threshold)}">` : '<span></span>'}
+    <button type="button" class="btn small danger" data-rm="${i}" aria-label="Remove">×</button>
+    <input type="text" class="sel" data-k="selector" data-i="${i}" spellcheck="false" placeholder="CSS selector of the element showing the number" aria-label="CSS selector" value="${esc(t.selector)}">
+  </div>`).join('');
+  el.querySelectorAll('[data-k]').forEach((inp) => {
+    inp.oninput = () => { trk[Number(inp.dataset.i)][inp.dataset.k] = inp.value; };
+    if (inp.dataset.k === 'mode') inp.onchange = () => { trk[Number(inp.dataset.i)].mode = inp.value; paintTrackers(); };
+  });
+  el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { trk.splice(Number(b.dataset.rm), 1); paintTrackers(); }));
+}
+
+// ---------- visual picker ----------
+let pick = { watch: [], ignore: [], track: [], mode: 'w' };
+async function openPicker() {
+  const url = editing?.url || $('#fUrl').value.trim();
+  if (!url) { $('#fErr').textContent = 'Enter the page URL first.'; return; }
+  const d = $('#dlgPicker');
+  pick = {
+    watch: $('#fWatch').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    ignore: $('#fIgnore').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    track: trk.map((t) => t.selector.trim()).filter(Boolean),
+    mode: 'w',
+  };
+  d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p>Loading a preview of the page. This can take up to 30 seconds.</p></div>
+    <div class="dlg-f"><button class="btn" id="pCancel0">Cancel</button></div>`;
+  $('#pCancel0').onclick = () => d.close();
+  d.showModal();
+  let data;
+  try { data = await api('/picker', { method: 'POST', body: { url } }); }
+  catch (e) {
+    d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p class="err">${esc(e.message)}</p></div>
+      <div class="dlg-f"><button class="btn" id="pClose">Close</button></div>`;
+    $('#pClose').onclick = () => d.close(); return;
+  }
+  d.innerHTML = `<div class="dlg-h">Pick regions</div>
+  <div class="dlg-b">
+    <div class="pickbar">
+      <label><input type="radio" name="pm" value="w" checked> Watch this area</label>
+      <label><input type="radio" name="pm" value="i"> Ignore this area</label>
+      <label><input type="radio" name="pm" value="t"> Track number</label>
+      <span style="color:var(--muted);font-size:13px">Click an area to add it. Click again to remove it. Smaller areas sit on top of larger ones.</span>
+    </div>
+    <div class="hint" id="pHint">&nbsp;</div>
+    <div class="pickwrap" id="pWrap"><img alt="Page preview" src="data:image/png;base64,${data.screenshot}"></div>
+    <div class="chips" id="pChips"></div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="pCancel">Cancel</button><button class="btn primary" id="pUse">Use these regions</button></div>`;
+  d.querySelectorAll('input[name=pm]').forEach((r) => (r.onchange = () => (pick.mode = r.value)));
+  const wrap = $('#pWrap');
+  for (const el of data.elements) {   // already sorted largest first, so smallest is on top
+    const b = document.createElement('div');
+    b.className = 'box'; b.dataset.sel = el.selector;
+    b.style.cssText = `left:${(el.x / data.width) * 100}%;top:${(el.y / data.height) * 100}%;width:${(el.w / data.width) * 100}%;height:${(el.h / data.height) * 100}%`;
+    b.onmouseenter = () => ($('#pHint').textContent = `${el.tag}: ${el.text || '(no text)'}  [${el.selector}]`);
+    b.onclick = (ev) => {
+      ev.stopPropagation();
+      if (pick.mode === 't' && !pick.track.includes(el.selector) && !/\d/.test(el.text)) {
+        $('#pHint').textContent = 'No digits in that area. Click the smaller element that shows the number.';
+        return;
+      }
+      toggle(el.selector);
+    };
+    wrap.appendChild(b);
+  }
+  paintPick();
+  $('#pCancel').onclick = () => d.close();
+  $('#pUse').onclick = () => {
+    $('#fWatch').value = pick.watch.join('\n');
+    $('#fIgnore').value = pick.ignore.join('\n');
+    // keep existing rows (and their history) for selectors that are still picked; add new ones
+    const known = trk.filter((t) => t.selector.trim() && pick.track.includes(t.selector.trim()));
+    const fresh = pick.track.filter((sel) => !known.some((t) => t.selector.trim() === sel))
+      .map((sel, n) => ({ label: 'Number ' + (known.length + n + 1), selector: sel, mode: 'any', threshold: '' }));
+    trk = [...known, ...trk.filter((t) => !t.selector.trim()), ...fresh];
+    paintTrackers();
+    d.close();
+  };
+}
+function toggle(sel) {
+  const lists = { w: pick.watch, i: pick.ignore, t: pick.track };
+  const list = lists[pick.mode];
+  for (const [m, other] of Object.entries(lists)) {
+    if (m === pick.mode) continue;
+    const o = other.indexOf(sel); if (o >= 0) other.splice(o, 1);
+  }
+  const i = list.indexOf(sel);
+  if (i >= 0) list.splice(i, 1); else list.push(sel);
+  paintPick();
+}
+function paintPick() {
+  document.querySelectorAll('#pWrap .box').forEach((b) => {
+    b.classList.toggle('w', pick.watch.includes(b.dataset.sel));
+    b.classList.toggle('i', pick.ignore.includes(b.dataset.sel));
+    b.classList.toggle('t', pick.track.includes(b.dataset.sel));
+  });
+  $('#pChips').innerHTML =
+    pick.watch.map((s, k) => `<span class="chip w" data-k="w${k}" title="Remove">watch ${esc(s)} ×</span>`).join('') +
+    pick.ignore.map((s, k) => `<span class="chip i" data-k="i${k}" title="Remove">ignore ${esc(s)} ×</span>`).join('') +
+    pick.track.map((s, k) => `<span class="chip t" data-k="t${k}" title="Remove">number ${esc(s)} ×</span>`).join('');
+  document.querySelectorAll('#pChips .chip').forEach((c) => (c.onclick = () => {
+    const list = { w: pick.watch, i: pick.ignore, t: pick.track }[c.dataset.k[0]];
+    list.splice(Number(c.dataset.k.slice(1)), 1); paintPick();
+  }));
+}
+
+// ---------- settings ----------
+function openSettings() {
+  const d = $('#dlgSettings');
+  d.innerHTML = `
+  <form method="dialog">
+    <div class="dlg-h">Alert settings</div>
+    <div class="dlg-b">
+      <p style="margin:0;color:var(--muted)">Alerts go to <b>${esc(me.email)}</b> ${me.email_delivery ? '' : '(email sending is not configured on this server yet, so alerts are printed in the server log)'}.</p>
+      <label>Discord webhook URL <small>${me.discord_configured ? 'A webhook is saved. Enter a new one to replace it, or leave blank to keep it.' : 'Server settings → Integrations → Webhooks.'}</small>
+        <input type="password" id="sDiscord" autocomplete="off" placeholder="https://discord.com/api/webhooks/…"></label>
+      <div class="row">
+        <label>Telegram bot token <small>${me.telegram_configured ? 'Saved. Leave blank to keep it.' : 'From @BotFather.'}</small>
+          <input type="password" id="sTgTok" autocomplete="off"></label>
+        <label>Telegram chat ID <input type="text" id="sTgChat" value="${esc(me.telegram_chat_id)}"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="sClear"> Remove saved Discord and Telegram settings</label>
+    </div>
+    <div class="dlg-f"><span class="err" id="sErr"></span>
+      <button type="button" class="btn" id="sCancel">Cancel</button><button type="submit" class="btn primary">Save settings</button></div>
+  </form>`;
+  $('#sCancel').onclick = () => d.close();
+  d.querySelector('form').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const body = {};
+    if ($('#sClear').checked) { body.discord_webhook = ''; body.telegram_bot_token = ''; body.telegram_chat_id = ''; }
+    else {
+      if ($('#sDiscord').value) body.discord_webhook = $('#sDiscord').value.trim();
+      if ($('#sTgTok').value) body.telegram_bot_token = $('#sTgTok').value.trim();
+      body.telegram_chat_id = $('#sTgChat').value;
+    }
+    try { await api('/me', { method: 'PUT', body }); d.close(); refresh(); }
+    catch (e) { $('#sErr').textContent = e.message; }
+  };
+  d.showModal();
+}
+
+// ---------- timeline ----------
+async function openTimeline(w) {
+  const d = $('#dlgTimeline');
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: version timeline</div><div class="dlg-b"><p>Loading…</p></div>`;
+  d.showModal();
+  let snaps;
+  try { snaps = await api(`/watches/${w.id}/snapshots`); } catch (e) { d.querySelector('.dlg-b').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const opts = snaps.map((s) => `<option value="${s.id}">${new Date(s.created_at).toLocaleString()}</option>`).join('');
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: version timeline</div>
+  <div class="dlg-b">
+    ${snaps.length < 2 ? '<p style="margin:0;color:var(--muted)">Only the baseline is saved so far. A new version appears here when the content changes.</p>' : `
+    <div class="row" style="align-items:end">
+      <label>Compare <select id="tlFrom">${opts}</select></label>
+      <label>with <select id="tlTo">${opts}</select></label>
+    </div><div><button class="btn" id="tlGo">Open side-by-side comparison</button></div>`}
+    <table class="tl"><tbody>${snaps.map((s) => `<tr>
+      <td style="white-space:nowrap">${new Date(s.created_at).toLocaleString()}</td>
+      <td>${esc(s.summary || '')}</td>
+      <td style="text-align:right">${s.compare_url ? `<a href="${esc(s.compare_url)}" target="_blank" rel="noopener">View diff</a>` : ''}</td></tr>`).join('')}</tbody></table>
+  </div>
+  <div class="dlg-f"><button class="btn" id="tlClose">Close</button></div>`;
+  $('#tlClose').onclick = () => d.close();
+  if (snaps.length >= 2) {
+    $('#tlFrom').value = snaps[1].id; $('#tlTo').value = snaps[0].id;
+    $('#tlGo').onclick = async () => {
+      try {
+        const r = await api(`/watches/${w.id}/compare?from=${$('#tlFrom').value}&to=${$('#tlTo').value}`);
+        window.open(r.url, '_blank', 'noopener');
+      } catch (e) { alert(e.message); }
+    };
+  }
+}
+
+// ---------- tracked numbers: chart ----------
+function niceTicks(lo, hi, n = 4) {
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw)), r = raw / mag;
+  const step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(+v.toPrecision(12));
+  return out;
+}
+function chartSvg(points, endTs, threshold, label) {
+  if (!points.length) return '<p class="note" style="max-width:none">No readings yet. The first one is recorded on the next check.</p>';
+  const W = 720, H = 240, m = { l: 62, r: 16, t: 14, b: 30 };
+  const t0 = points[0][0];
+  const t1 = Math.max(endTs || 0, points[points.length - 1][0], t0 + 1);
+  let lo = Math.min(...points.map((p) => p[1])), hi = Math.max(...points.map((p) => p[1]));
+  if (threshold != null) { lo = Math.min(lo, threshold); hi = Math.max(hi, threshold); }
+  const pad = hi === lo ? Math.abs(hi) * 0.05 || 1 : (hi - lo) * 0.08;
+  lo -= pad; hi += pad;
+  const x = (t) => m.l + ((t - t0) / (t1 - t0)) * (W - m.l - m.r);
+  const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  // the value only changes when a reading is stored, so draw a step line that runs to the last check
+  let path = `M${x(points[0][0])},${y(points[0][1])}`;
+  for (let i = 1; i < points.length; i++) path += ` H${x(points[i][0])} V${y(points[i][1])}`;
+  path += ` H${x(t1)}`;
+  let grid = '';
+  for (const v of niceTicks(lo, hi)) {
+    const yy = y(v);
+    grid += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${yy}" y2="${yy}"/><text x="${m.l - 8}" y="${yy + 4}" text-anchor="end">${esc(fmtNum(v))}</text>`;
+  }
+  const span = t1 - t0;
+  for (let i = 0; i <= 3; i++) {
+    const t = t0 + (span * i) / 3, dt = new Date(t);
+    const txt = span < 36 * 3600_000 ? dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : dt.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    grid += `<text x="${x(t)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === 3 ? 'end' : 'middle'}">${esc(txt)}</text>`;
+  }
+  const thr = threshold != null ? `<line class="thr" x1="${m.l}" x2="${W - m.r}" y1="${y(threshold)}" y2="${y(threshold)}"><title>Alert threshold ${esc(fmtNum(threshold))}</title></line>` : '';
+  const dots = points.map((p) => `<circle class="dot" cx="${x(p[0])}" cy="${y(p[1])}" r="3.5"><title>${esc(fmtNum(p[1]))} on ${esc(new Date(p[0]).toLocaleString())}</title></circle>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} over time">${grid}${thr}<path class="line" d="${path}"/>${dots}</svg>`;
+}
+
+async function openNumbers(w) {
+  const d = $('#dlgNumbers');
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: tracked numbers</div><div class="dlg-b"><p>Loading…</p></div>`;
+  d.showModal();
+  let list;
+  try { list = await api(`/watches/${w.id}/numbers`); } catch (e) { d.querySelector('.dlg-b').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: tracked numbers</div>
+  <div class="dlg-b">${list.map((t) => {
+    const delta = t.first != null && t.last_value != null && t.first !== 0 ? ((t.last_value - t.first) / Math.abs(t.first)) * 100 : null;
+    return `<div class="numblock">
+      <div><b>${esc(t.label)}</b> <span class="val">${fmtNum(t.last_value)}</span>${t.last_error ? ` <span class="warn">⚠ ${esc(t.last_error)}</span>` : ''}</div>
+      <div class="stats"><span>Lowest <b>${fmtNum(t.min)}</b></span><span>Highest <b>${fmtNum(t.max)}</b></span>
+        ${delta != null ? `<span>Since first reading <b>${delta > 0 ? '+' : ''}${delta.toFixed(1)}%</b></span>` : ''}
+        <span>Last read ${ago(t.last_read_at)}</span><span>${t.points.length} recorded change${t.points.length === 1 ? '' : 's'}</span></div>
+      ${chartSvg(t.points, t.last_read_at, t.mode === 'below' || t.mode === 'above' ? t.threshold : null, t.label)}
+    </div>`;
+  }).join('')}</div>
+  <div class="dlg-f"><button class="btn" id="nmClose">Close</button></div>`;
+  $('#nmClose').onclick = () => d.close();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Change Detector Helper",
+  "version": "1.0.0",
+  "description": "Add the page you are viewing to your Change Detector server, and pick regions or numbers to track by clicking on the page.",
+  "minimum_chrome_version": "102",
+  "action": { "default_popup": "popup.html", "default_title": "Watch this page" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"]
+}
