@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Change Detector</title>
+<style>
+:root{
+  --bg:#f5f6f8;--panel:#fff;--ink:#1a1d24;--muted:#667085;--rule:#dfe3ea;--accent:#2b4acb;
+  --ok:#13794a;--ok-bg:#e3f4ea;--err:#b42318;--err-bg:#fde8e8;--warn:#9a5b00;--warn-bg:#fff1d6;--idle-bg:#eceff3;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+header.top{display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5}
+header.top h1{font-size:18px;margin:0;flex:1;letter-spacing:-.01em}
+main{max-width:1180px;margin:24px auto;padding:0 16px}
+.btn{border:1px solid var(--rule);background:var(--panel);padding:7px 14px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:#b9c0cc}.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--err)}.btn.small{padding:3px 9px;font-size:13px}
+.tablewrap{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th{text-align:left;font-weight:600;font-size:13px;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--rule)}
+td{padding:12px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.name{font-weight:600}.url{font:12px var(--mono);color:var(--muted);word-break:break-all}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:13px;font-weight:600}
+.b-ok{background:var(--ok-bg);color:var(--ok)}.b-error{background:var(--err-bg);color:var(--err)}
+.b-blocked{background:var(--warn-bg);color:var(--warn)}.b-pending{background:var(--idle-bg);color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:3px;max-width:260px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.empty{padding:48px 24px;text-align:center;color:var(--muted)}
+dialog{border:1px solid var(--rule);border-radius:10px;padding:0;max-width:640px;width:calc(100% - 24px);box-shadow:0 12px 40px rgba(20,25,40,.18)}
+dialog::backdrop{background:rgba(20,25,40,.4)}
+dialog.wide{max-width:1000px}
+.dlg-h{padding:16px 20px;border-bottom:1px solid var(--rule);font-weight:600;font-size:17px}
+.dlg-b{padding:18px 20px;display:grid;gap:14px;max-height:72vh;overflow:auto}
+.dlg-f{padding:14px 20px;border-top:1px solid var(--rule);display:flex;gap:8px;justify-content:flex-end;align-items:center}
+label{display:grid;gap:4px;font-weight:600;font-size:14px}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=url],input[type=email],input[type=password],select,textarea{border:1px solid var(--rule);border-radius:6px;padding:8px 10px;background:#fff;width:100%;font-weight:400}
+textarea{font:13px var(--mono);min-height:64px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;gap:8px;align-items:center;font-weight:400}
+.err{color:var(--err);font-size:14px;margin-right:auto}
+.login{max-width:440px;margin:80px auto;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:28px;display:grid;gap:14px}
+.login h1{margin:0;font-size:22px}.login p{margin:0;color:var(--muted)}
+/* picker */
+.pickbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pickbar label{display:flex;gap:6px;align-items:center;font-weight:400}
+.pickwrap{position:relative;border:1px solid var(--rule);background:#fff;line-height:0}
+.pickwrap img{width:100%;display:block}
+.box{position:absolute;border:1px solid transparent;cursor:pointer;background:transparent}
+.box:hover{border-color:var(--accent);background:rgba(43,74,203,.10)}
+.box.w{border:2px solid var(--ok);background:rgba(19,121,74,.18)}
+.box.i{border:2px solid var(--err);background:rgba(180,35,24,.20)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;line-height:1.3}
+.chip{font:12px var(--mono);padding:3px 8px;border-radius:5px;display:flex;gap:6px;align-items:center;cursor:pointer;max-width:100%}
+.chip.w{background:var(--ok-bg);color:var(--ok)}.chip.i{background:var(--err-bg);color:var(--err)}
+.hint{font-size:13px;color:var(--muted);min-height:20px;font-family:var(--mono);word-break:break-all}
+.tl{width:100%;border-collapse:collapse}.tl td{padding:8px 6px;border-bottom:1px solid var(--rule)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<dialog id="dlgWatch"></dialog>
+<dialog id="dlgPicker" class="wide"></dialog>
+<dialog id="dlgSettings"></dialog>
+<dialog id="dlgTimeline" class="wide"></dialog>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let token = localStorage.getItem('wcd_token');
+let me = null, watches = [], editing = null, pollTimer = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch('/api' + path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && token) { logout(); throw new Error('Signed out'); }
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function logout() { localStorage.removeItem('wcd_token'); token = null; clearInterval(pollTimer); render(); }
+
+function ago(ts) {
+  if (!ts) return '—';
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+  return Math.floor(s / 86400) + ' d ago';
+}
+function every(min) { return min < 60 ? min + ' min' : min % 60 ? min + ' min' : (min / 60) + ' h'; }
+const STATUS = { ok: ['OK', 'b-ok'], error: ['Error', 'b-error'], blocked: ['Blocked', 'b-blocked'], pending: ['Waiting', 'b-pending'] };
+
+// ---------- screens ----------
+function render() {
+  if (!token) return renderLogin();
+  renderMain();
+}
+
+function renderLogin() {
+  $('#app').innerHTML = `
+  <div class="login">
+    <h1>Change Detector</h1>
+    <p>Get an alert when a page changes in a way that matters. Enter your email to create an access token, or paste one you already have.</p>
+    <label>Email <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+    <button class="btn primary" id="lgReg">Create access token</button>
+    <label>Existing token <input id="lgTok" type="password" autocomplete="off"></label>
+    <button class="btn" id="lgUse">Sign in with token</button>
+    <div class="err" id="lgErr"></div>
+  </div>`;
+  $('#lgReg').onclick = async () => {
+    try {
+      const r = await api('/register', { method: 'POST', body: { email: $('#lgEmail').value } });
+      token = r.token; localStorage.setItem('wcd_token', token);
+      alert('Your access token (save it, it is shown once):\n\n' + token);
+      render();
+    } catch (e) { $('#lgErr').textContent = e.message; }
+  };
+  $('#lgUse').onclick = async () => {
+    token = $('#lgTok').value.trim();
+    try { await api('/me'); localStorage.setItem('wcd_token', token); render(); }
+    catch (e) { token = null; $('#lgErr').textContent = 'That token was not recognised.'; }
+  };
+}
+
+async function renderMain() {
+  $('#app').innerHTML = `
+  <header class="top">
+    <h1>Change Detector</h1>
+    <button class="btn" id="btnSettings">Alert settings</button>
+    <button class="btn primary" id="btnAdd">Add watch</button>
+    <button class="btn" id="btnOut">Sign out</button>
+  </header>
+  <main><div class="tablewrap" id="list"></div></main>`;
+  $('#btnAdd').onclick = () => openWatch(null);
+  $('#btnSettings').onclick = openSettings;
+  $('#btnOut').onclick = logout;
+  await refresh();
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => refresh().catch(() => {}), 20000);
+}
+
+async function refresh() {
+  [me, watches] = await Promise.all([api('/me'), api('/watches')]);
+  const el = $('#list');
+  if (!el) return;
+  if (!watches.length) {
+    el.innerHTML = `<div class="empty">No watches yet. Add a page URL and choose how often to check it.</div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Page</th><th>Status</th><th>Last checked</th><th>Last changed</th><th>Every</th><th></th></tr></thead><tbody>${
+    watches.map((w) => {
+      const [label, cls] = STATUS[w.status] || STATUS.pending;
+      const note = w.status === 'error' || w.status === 'blocked' ? w.last_error : w.noisy ? 'Changes on every check: alerts paused. Ignore the changing area.' : '';
+      return `<tr>
+        <td><div class="name">${esc(w.name)}</div><div class="url">${esc(w.url)}</div>${
+          w.watch_selectors.length ? `<div class="note">Watching ${w.watch_selectors.length} region(s)</div>` : ''}</td>
+        <td><span class="badge ${cls}">${label}</span>${note ? `<div class="note">${esc(note)}</div>` : ''}</td>
+        <td>${ago(w.last_checked_at)}</td><td>${ago(w.last_changed_at)}</td><td>${every(w.interval_min)}</td>
+        <td><div class="actions">
+          <button class="btn small" data-a="timeline" data-id="${w.id}">Timeline</button>
+          <button class="btn small" data-a="check" data-id="${w.id}">Check now</button>
+          <button class="btn small" data-a="edit" data-id="${w.id}">Edit</button>
+          <button class="btn small" data-a="rss" data-id="${w.id}">RSS</button>
+          <button class="btn small danger" data-a="del" data-id="${w.id}">Delete</button>
+        </div></td></tr>`;
+    }).join('')}</tbody></table>`;
+  el.querySelectorAll('button[data-a]').forEach((b) => (b.onclick = () => rowAction(b.dataset.a, Number(b.dataset.id))));
+}
+
+async function rowAction(a, id) {
+  const w = watches.find((x) => x.id === id);
+  try {
+    if (a === 'edit') return openWatch(w);
+    if (a === 'timeline') return openTimeline(w);
+    if (a === 'rss') { await navigator.clipboard?.writeText(w.rss_url).catch(() => {}); return alert('Feed URL (copied if allowed):\n\n' + w.rss_url); }
+    if (a === 'check') { await api(`/watches/${id}/check`, { method: 'POST' }); return alert('Check queued. Results appear here shortly.'); }
+    if (a === 'del' && confirm(`Delete "${w.name}" and all its saved versions?`)) { await api(`/watches/${id}`, { method: 'DELETE' }); refresh(); }
+  } catch (e) { alert(e.message); }
+}
+
+// ---------- add / edit watch ----------
+const INTERVALS = [[15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [360, '6 hours'], [720, '12 hours'], [1440, '24 hours']];
+
+function openWatch(w) {
+  editing = w;
+  const d = $('#dlgWatch');
+  d.innerHTML = `
+  <form method="dialog" id="watchForm">
+    <div class="dlg-h">${w ? 'Edit watch' : 'Add watch'}</div>
+    <div class="dlg-b">
+      <label>Page URL <input type="url" id="fUrl" required placeholder="https://example.com/pricing" value="${esc(w?.url || '')}" ${w ? 'disabled' : ''}></label>
+      <label>Name <input type="text" id="fName" required maxlength="100" placeholder="Pricing page" value="${esc(w?.name || '')}"></label>
+      <div class="row">
+        <label>Check every <select id="fInt">${INTERVALS.map(([v, t]) => `<option value="${v}" ${(w?.interval_min || 60) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label>Sensitivity <select id="fSens">
+          <option value="high">High: any text change</option>
+          <option value="medium">Medium: skip punctuation / case edits</option>
+          <option value="low">Low: only larger changes</option></select></label>
+      </div>
+      <label>Regions to watch <small>CSS selectors, one per line. Empty = whole page.</small><textarea id="fWatch" spellcheck="false">${esc((w?.watch_selectors || []).join('\n'))}</textarea></label>
+      <label>Regions to ignore <small>CSS selectors, one per line.</small><textarea id="fIgnore" spellcheck="false">${esc((w?.ignore_selectors || []).join('\n'))}</textarea></label>
+      <div><button type="button" class="btn" id="fPick">Pick regions visually</button></div>
+      <label>Only alert when these words appear in the change <small>Optional, comma separated.</small><input type="text" id="fKw" placeholder="in stock, price" value="${esc(w?.keyword || '')}"></label>
+      <label class="check"><input type="checkbox" id="fEmail" ${w?.notify_email !== false ? 'checked' : ''}> Email me</label>
+      <label class="check"><input type="checkbox" id="fHook" ${w?.notify_webhook !== false ? 'checked' : ''}> Send to Telegram / Discord (set up in Alert settings)</label>
+      <label class="check"><input type="checkbox" id="fDigest" ${w?.digest ? 'checked' : ''}> Send changes as one daily digest instead of instantly</label>
+    </div>
+    <div class="dlg-f"><span class="err" id="fErr"></span>
+      <button type="button" class="btn" id="fCancel">Cancel</button>
+      <button type="submit" class="btn primary">${w ? 'Save changes' : 'Start watching'}</button></div>
+  </form>`;
+  $('#fSens').value = w?.sensitivity || 'medium';
+  $('#fCancel').onclick = () => d.close();
+  $('#fPick').onclick = openPicker;
+  $("#watchForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const lines = (id) => $(id).value.split('\n').map((s) => s.trim()).filter(Boolean);
+    const body = {
+      name: $('#fName').value, interval_min: Number($('#fInt').value), sensitivity: $('#fSens').value,
+      watch_selectors: lines('#fWatch'), ignore_selectors: lines('#fIgnore'), keyword: $('#fKw').value,
+      notify_email: $('#fEmail').checked, notify_webhook: $('#fHook').checked, digest: $('#fDigest').checked,
+    };
+    try {
+      if (w) await api(`/watches/${w.id}`, { method: 'PUT', body });
+      else await api('/watches', { method: 'POST', body: { ...body, url: $('#fUrl').value } });
+      d.close(); refresh();
+    } catch (e) { $('#fErr').textContent = e.message; }
+  };
+  d.showModal();
+}
+
+// ---------- visual picker ----------
+let pick = { watch: [], ignore: [], mode: 'w' };
+async function openPicker() {
+  const url = editing?.url || $('#fUrl').value.trim();
+  if (!url) { $('#fErr').textContent = 'Enter the page URL first.'; return; }
+  const d = $('#dlgPicker');
+  pick = {
+    watch: $('#fWatch').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    ignore: $('#fIgnore').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    mode: 'w',
+  };
+  d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p>Loading a preview of the page. This can take up to 30 seconds.</p></div>
+    <div class="dlg-f"><button class="btn" id="pCancel0">Cancel</button></div>`;
+  $('#pCancel0').onclick = () => d.close();
+  d.showModal();
+  let data;
+  try { data = await api('/picker', { method: 'POST', body: { url } }); }
+  catch (e) {
+    d.innerHTML = `<div class="dlg-h">Pick regions</div><div class="dlg-b"><p class="err">${esc(e.message)}</p></div>
+      <div class="dlg-f"><button class="btn" id="pClose">Close</button></div>`;
+    $('#pClose').onclick = () => d.close(); return;
+  }
+  d.innerHTML = `<div class="dlg-h">Pick regions</div>
+  <div class="dlg-b">
+    <div class="pickbar">
+      <label><input type="radio" name="pm" value="w" checked> Watch this area</label>
+      <label><input type="radio" name="pm" value="i"> Ignore this area</label>
+      <span style="color:var(--muted);font-size:13px">Click an area to add it. Click again to remove it. Smaller areas sit on top of larger ones.</span>
+    </div>
+    <div class="hint" id="pHint">&nbsp;</div>
+    <div class="pickwrap" id="pWrap"><img alt="Page preview" src="data:image/png;base64,${data.screenshot}"></div>
+    <div class="chips" id="pChips"></div>
+  </div>
+  <div class="dlg-f"><button class="btn" id="pCancel">Cancel</button><button class="btn primary" id="pUse">Use these regions</button></div>`;
+  d.querySelectorAll('input[name=pm]').forEach((r) => (r.onchange = () => (pick.mode = r.value)));
+  const wrap = $('#pWrap');
+  for (const el of data.elements) {   // already sorted largest first, so smallest is on top
+    const b = document.createElement('div');
+    b.className = 'box'; b.dataset.sel = el.selector;
+    b.style.cssText = `left:${(el.x / data.width) * 100}%;top:${(el.y / data.height) * 100}%;width:${(el.w / data.width) * 100}%;height:${(el.h / data.height) * 100}%`;
+    b.onmouseenter = () => ($('#pHint').textContent = `${el.tag}: ${el.text || '(no text)'}  [${el.selector}]`);
+    b.onclick = (ev) => { ev.stopPropagation(); toggle(el.selector); };
+    wrap.appendChild(b);
+  }
+  paintPick();
+  $('#pCancel').onclick = () => d.close();
+  $('#pUse').onclick = () => {
+    $('#fWatch').value = pick.watch.join('\n');
+    $('#fIgnore').value = pick.ignore.join('\n');
+    d.close();
+  };
+}
+function toggle(sel) {
+  const list = pick.mode === 'w' ? pick.watch : pick.ignore;
+  const other = pick.mode === 'w' ? pick.ignore : pick.watch;
+  const o = other.indexOf(sel); if (o >= 0) other.splice(o, 1);
+  const i = list.indexOf(sel);
+  if (i >= 0) list.splice(i, 1); else list.push(sel);
+  paintPick();
+}
+function paintPick() {
+  document.querySelectorAll('#pWrap .box').forEach((b) => {
+    b.classList.toggle('w', pick.watch.includes(b.dataset.sel));
+    b.classList.toggle('i', pick.ignore.includes(b.dataset.sel));
+  });
+  $('#pChips').innerHTML =
+    pick.watch.map((s, k) => `<span class="chip w" data-k="w${k}" title="Remove">watch ${esc(s)} ×</span>`).join('') +
+    pick.ignore.map((s, k) => `<span class="chip i" data-k="i${k}" title="Remove">ignore ${esc(s)} ×</span>`).join('');
+  document.querySelectorAll('#pChips .chip').forEach((c) => (c.onclick = () => {
+    const list = c.dataset.k[0] === 'w' ? pick.watch : pick.ignore;
+    list.splice(Number(c.dataset.k.slice(1)), 1); paintPick();
+  }));
+}
+
+// ---------- settings ----------
+function openSettings() {
+  const d = $('#dlgSettings');
+  d.innerHTML = `
+  <form method="dialog">
+    <div class="dlg-h">Alert settings</div>
+    <div class="dlg-b">
+      <p style="margin:0;color:var(--muted)">Alerts go to <b>${esc(me.email)}</b> ${me.email_delivery ? '' : '(email sending is not configured on this server yet, so alerts are printed in the server log)'}.</p>
+      <label>Discord webhook URL <small>${me.discord_configured ? 'A webhook is saved. Enter a new one to replace it, or leave blank to keep it.' : 'Server settings → Integrations → Webhooks.'}</small>
+        <input type="password" id="sDiscord" autocomplete="off" placeholder="https://discord.com/api/webhooks/…"></label>
+      <div class="row">
+        <label>Telegram bot token <small>${me.telegram_configured ? 'Saved. Leave blank to keep it.' : 'From @BotFather.'}</small>
+          <input type="password" id="sTgTok" autocomplete="off"></label>
+        <label>Telegram chat ID <input type="text" id="sTgChat" value="${esc(me.telegram_chat_id)}"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="sClear"> Remove saved Discord and Telegram settings</label>
+    </div>
+    <div class="dlg-f"><span class="err" id="sErr"></span>
+      <button type="button" class="btn" id="sCancel">Cancel</button><button type="submit" class="btn primary">Save settings</button></div>
+  </form>`;
+  $('#sCancel').onclick = () => d.close();
+  d.querySelector('form').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const body = {};
+    if ($('#sClear').checked) { body.discord_webhook = ''; body.telegram_bot_token = ''; body.telegram_chat_id = ''; }
+    else {
+      if ($('#sDiscord').value) body.discord_webhook = $('#sDiscord').value.trim();
+      if ($('#sTgTok').value) body.telegram_bot_token = $('#sTgTok').value.trim();
+      body.telegram_chat_id = $('#sTgChat').value;
+    }
+    try { await api('/me', { method: 'PUT', body }); d.close(); refresh(); }
+    catch (e) { $('#sErr').textContent = e.message; }
+  };
+  d.showModal();
+}
+
+// ---------- timeline ----------
+async function openTimeline(w) {
+  const d = $('#dlgTimeline');
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: version timeline</div><div class="dlg-b"><p>Loading…</p></div>`;
+  d.showModal();
+  let snaps;
+  try { snaps = await api(`/watches/${w.id}/snapshots`); } catch (e) { d.querySelector('.dlg-b').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const opts = snaps.map((s) => `<option value="${s.id}">${new Date(s.created_at).toLocaleString()}</option>`).join('');
+  d.innerHTML = `<div class="dlg-h">${esc(w.name)}: version timeline</div>
+  <div class="dlg-b">
+    ${snaps.length < 2 ? '<p style="margin:0;color:var(--muted)">Only the baseline is saved so far. A new version appears here when the content changes.</p>' : `
+    <div class="row" style="align-items:end">
+      <label>Compare <select id="tlFrom">${opts}</select></label>
+      <label>with <select id="tlTo">${opts}</select></label>
+    </div><div><button class="btn" id="tlGo">Open side-by-side comparison</button></div>`}
+    <table class="tl"><tbody>${snaps.map((s) => `<tr>
+      <td style="white-space:nowrap">${new Date(s.created_at).toLocaleString()}</td>
+      <td>${esc(s.summary || '')}</td>
+      <td style="text-align:right">${s.compare_url ? `<a href="${esc(s.compare_url)}" target="_blank" rel="noopener">View diff</a>` : ''}</td></tr>`).join('')}</tbody></table>
+  </div>
+  <div class="dlg-f"><button class="btn" id="tlClose">Close</button></div>`;
+  $('#tlClose').onclick = () => d.close();
+  if (snaps.length >= 2) {
+    $('#tlFrom').value = snaps[1].id; $('#tlTo').value = snaps[0].id;
+    $('#tlGo').onclick = async () => {
+      try {
+        const r = await api(`/watches/${w.id}/compare?from=${$('#tlFrom').value}&to=${$('#tlTo').value}`);
+        window.open(r.url, '_blank', 'noopener');
+      } catch (e) { alert(e.message); }
+    };
+  }
+}
+
+render();
+</script>
+</body>
+</html>
