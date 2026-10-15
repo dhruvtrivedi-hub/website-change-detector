@@ -86,6 +86,7 @@ export async function render(url, { selectors = [], timeoutMs = config.jobTimeou
       throw new FetchError(verdict.kind, verdict.message, {
         noRetry: verdict.noRetry || verdict.kind === 'blocked',
         retryAfterMs: parseRetryAfter(response.headers['retry-after']),
+        status: response.status,
       });
     }
 

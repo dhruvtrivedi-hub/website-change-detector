@@ -17,6 +17,7 @@ import { schedulerTick, startWorker } from './worker.js';
 import { diffUrl, sign, retryUnsent, sendDigests } from './alerts.js';
 import { textDiff, sideBySide, imageDiff } from './diff.js';
 import { aiEnabled } from './ai.js';
+import { runScraperCheck } from './scraper-check.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -241,6 +242,30 @@ function publicWatch(w, trackers = trackersOf(w.id)) {
 
 const WATCH_SELECT = `SELECT w.*, p.url, p.status, p.last_error, p.last_checked_at, p.next_check_at
                       FROM watches w JOIN pages p ON p.id = w.page_id`;
+
+// ---------- scraper health check ----------
+
+app.get('/test-status', async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (limited('scraper-test-status', 10, 60_000)) {
+    return res.status(429).json({ ok: false, error: 'Test endpoint is busy. Try again in a minute.' });
+  }
+
+  try {
+    const result = await runScraperCheck();
+    return res.status(result.ok ? 200 : 503).json(result);
+  } catch (error) {
+    // Keep temporary upstream failures local to this response; never let them stop Express.
+    console.error('scraper test-status check failed:', error);
+    return res.status(503).json({
+      ok: false,
+      checkedAt: new Date().toISOString(),
+      httpStatus: Number.isInteger(error?.status) ? error.status : null,
+      extractedText: '',
+      error: String(error?.message || error).slice(0, 300),
+    });
+  }
+});
 
 // ---------- API: email/password accounts ----------
 
