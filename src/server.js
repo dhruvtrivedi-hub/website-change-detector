@@ -1,6 +1,9 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
+import bcrypt from 'bcryptjs';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +25,7 @@ import { runScraperCheck } from './scraper-check.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '100kb' }));
+app.use(passport.initialize());
 app.use((req, res, next) => {
   const origin = req.headers.origin || '';
   if (origin.startsWith('chrome-extension://')) {
@@ -35,12 +39,24 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/docs', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'docs.html')));
 
 // ---------- helpers ----------
 
 const SESSION_COOKIE = 'wcd_session';
+const GOOGLE_STATE_COOKIE = 'wcd_google_state';
 const SESSION_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60;
 const scrypt = promisify(crypto.scrypt);
+
+if (config.googleAuthEnabled) {
+  passport.use(new GoogleStrategy({
+    clientID: config.googleClientId,
+    clientSecret: config.googleClientSecret,
+    callbackURL: config.googleCallbackUrl,
+  }, (accessToken, refreshToken, profile, done) => {
+    findOrCreateGoogleUser(profile).then((user) => done(null, user)).catch(done);
+  }));
+}
 
 const hits = new Map();
 function limited(key, max, windowMs) {
@@ -80,14 +96,30 @@ function sessionCookie(value, clear = false, extension = false) {
   return `${SESSION_COOKIE}=${clear ? '' : encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${clear ? 0 : SESSION_MAX_AGE_SECONDS}${clear ? '; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : ''}${secure}`;
 }
 
-const passwordHash = async (password) => {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derived = await scrypt(password, salt, 64);
-  return `${salt}:${derived.toString('hex')}`;
-};
+function googleStateCookie(value, clear = false) {
+  const secure = config.baseUrl.startsWith('https://') ? '; Secure' : '';
+  return `${GOOGLE_STATE_COOKIE}=${clear ? '' : encodeURIComponent(value)}; Path=/auth/google; HttpOnly; SameSite=Lax; Max-Age=${clear ? 0 : 600}${clear ? '; Expires=Thu, 01 Jan 1970 00:00:00 GMT' : ''}${secure}`;
+}
+
+const passwordHash = (password) => bcrypt.hash(password, 12);
+
+function passwordPolicyError(password) {
+  if (password.length < 8) return 'Password must be at least 8 characters.';
+  if (Buffer.byteLength(password, 'utf8') > 72) return 'Password must be no longer than 72 bytes.';
+  if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.';
+  if (!/[a-z]/.test(password)) return 'Password must include at least one lowercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must include at least one number.';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Password must include at least one special character.';
+  return null;
+}
 
 async function passwordMatches(password, stored) {
   if (!stored || typeof stored !== 'string') return false;
+  if (/^\$2[aby]\$/.test(stored)) {
+    if (Buffer.byteLength(password, 'utf8') > 72) return false;
+    return bcrypt.compare(password, stored);
+  }
+  // Upgrade existing scrypt accounts transparently after their next successful sign-in.
   const [salt, expected] = stored.split(':');
   if (!salt || !expected || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(expected)) return false;
   const actual = await scrypt(password, salt, 64);
@@ -103,7 +135,28 @@ function createSession(userId, res, extension = false) {
   const sessionId = randomToken(32);
   db.prepare('INSERT INTO sessions(session_hash, user_id, created_at) VALUES (?,?,?)')
     .run(sha256(sessionId), userId, Date.now());
-  res.setHeader('Set-Cookie', sessionCookie(sessionId, false, extension));
+  res.append('Set-Cookie', sessionCookie(sessionId, false, extension));
+}
+
+async function findOrCreateGoogleUser(profile) {
+  const sub = String(profile.id || '');
+  const emailEntry = profile.emails?.find((entry) => entry.verified === true);
+  const email = validEmail(emailEntry?.value);
+  if (!sub || !email) throw new Error('Google did not provide a verified email address.');
+
+  const linked = db.prepare('SELECT id,email FROM users WHERE google_sub=?').get(sub);
+  if (linked) return linked;
+
+  const byEmail = db.prepare('SELECT id,email,google_sub FROM users WHERE email=?').get(email);
+  if (byEmail) {
+    if (byEmail.google_sub && byEmail.google_sub !== sub) throw new Error('That email is linked to another Google account.');
+    db.prepare('UPDATE users SET google_sub=? WHERE id=?').run(sub, byEmail.id);
+    return { id: byEmail.id, email: byEmail.email };
+  }
+
+  const created = db.prepare('INSERT INTO users(email,password_hash,google_sub,created_at) VALUES (?,?,?,?)')
+    .run(email, null, sub, Date.now());
+  return { id: Number(created.lastInsertRowid), email };
 }
 
 function ownWatch(req, res) {
@@ -269,12 +322,53 @@ app.get('/test-status', async (_req, res) => {
 
 // ---------- API: email/password accounts ----------
 
+app.get('/api/auth/providers', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ googleEnabled: config.googleAuthEnabled });
+});
+
+app.get('/auth/google', (req, res, next) => {
+  if (!config.googleAuthEnabled) {
+    return res.status(503).send('Google sign-in is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.');
+  }
+  const state = randomToken(32);
+  res.append('Set-Cookie', googleStateCookie(state));
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    state,
+    session: false,
+  })(req, res, next);
+});
+
+app.get('/auth/google/callback', (req, res, next) => {
+  const expectedState = cookieValue(req, GOOGLE_STATE_COOKIE);
+  const receivedState = String(req.query.state || '');
+  res.append('Set-Cookie', googleStateCookie('', true));
+  if (!expectedState || !receivedState || !safeEqual(expectedState, receivedState)) {
+    return res.status(400).send('Google sign-in could not be verified. Please return to the home page and try again.');
+  }
+
+  passport.authenticate('google', { session: false }, (error, user) => {
+    if (error || !user) {
+      if (error) console.error('Google sign-in failed:', error.message || error);
+      return res.redirect('/?auth_error=google');
+    }
+    try {
+      createSession(user.id, res);
+      return res.redirect('/');
+    } catch (sessionError) {
+      console.error('Could not create Google sign-in session:', sessionError);
+      return res.redirect('/?auth_error=google');
+    }
+  })(req, res, next);
+});
+
 app.post('/api/signup', wrap(async (req, res) => {
   const email = validEmail(req.body?.email);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (!email) return res.status(400).json({ error: 'Enter a valid email address.' });
-  if (password.length < 10 || password.length > 1024)
-    return res.status(400).json({ error: 'Password must be at least 10 characters.' });
+  const policyError = passwordPolicyError(password);
+  if (policyError) return res.status(400).json({ error: policyError });
 
   const existing = db.prepare('SELECT * FROM users WHERE email=?').get(email);
   if (existing?.password_hash) return res.status(409).json({ error: 'An account with this email already exists. Sign in instead.' });
@@ -308,6 +402,9 @@ app.post('/api/login', wrap(async (req, res) => {
   const user = email && db.prepare('SELECT * FROM users WHERE email=?').get(email);
   if (!user || !await passwordMatches(password, user.password_hash))
     return res.status(401).json({ error: 'Email or password is incorrect.' });
+  if (user.password_hash && !/^\$2[aby]\$/.test(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72) {
+    db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(await passwordHash(password), user.id);
+  }
   createSession(user.id, res, (req.headers.origin || '').startsWith('chrome-extension://'));
   res.json({ ok: true, email: user.email });
 }));

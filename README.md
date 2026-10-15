@@ -24,11 +24,17 @@ Optional environment variables:
 | `SMTP_URL`, `MAIL_FROM` | Email alerts, e.g. `smtps://user:pass@smtp.example.com`. Without it, emails are printed to the log |
 | `SECRET` | Signs diff links and encrypts stored webhook/bot tokens (auto-generated in `data/secret.key` if unset) |
 | `DATA_DIR` | SQLite DB (default `./data`) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Passport Google OAuth sign-in |
+| `GOOGLE_CALLBACK_URL` | Optional exact OAuth callback URL; defaults to `${BASE_URL}/auth/google/callback` |
 | `CONCURRENCY` | Parallel page checks (default 3) |
 | `ANTHROPIC_API_KEY` | Turns on AI-written change summaries (see below). Without it the built-in summary is used |
 | `AI_MODEL` | Model used for summaries (default `claude-haiku-5-5`, a small fast model is plenty) |
 
-Open the dashboard and choose **Create an account** with your email address and a password of at least 10 characters. Use **Sign in** on later visits. Passwords are stored as scrypt hashes and sessions persist across browser restarts until you sign out. Existing token-era users can claim their saved watches by creating an account with the same email address. Email is used as the account name and notification destination; the app does not send verification or sign-in tokens.
+Open the landing page and choose **Create account**. Passwords require at least 8 characters, including uppercase and lowercase letters, a number, and a special character; hashes use bcrypt. Existing scrypt password hashes are upgraded to bcrypt after the next successful sign-in. Users can also sign in with Google after OAuth credentials are configured. Both methods create the app's persistent database-backed session. Verified Google email addresses link to an existing account with the same email.
+
+Register this exact authorized redirect URI in Google Cloud OAuth settings: `https://YOUR-RENDER-SERVICE.onrender.com/auth/google/callback`. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and (recommended) `GOOGLE_CALLBACK_URL` in Render's environment. Without OAuth credentials, email/password sign-in remains available.
+
+The landing page links to `/docs` for the HLD/LLD and `/test-status` for a live scraper check. Set `SCRAPER_TEST_URL` to override the static smoke-test target.
 
 ## Requirement map
 

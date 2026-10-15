@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT,
+  google_sub TEXT,
   discord_webhook TEXT,          -- encrypted
   telegram_bot_token TEXT,       -- encrypted
   telegram_chat_id TEXT,
@@ -211,4 +212,6 @@ if (raw.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'token_
     raw.exec('PRAGMA foreign_keys=ON;');
   }
 }
-db.prepare('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE password_hash IS NULL)').run();
+addColumn('users', 'google_sub', 'TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL');
+db.prepare('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE password_hash IS NULL AND google_sub IS NULL)').run();

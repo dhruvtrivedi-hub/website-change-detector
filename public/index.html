@@ -108,6 +108,28 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
   .dlg-b{padding:14px}.dlg-h{padding:14px}.dlg-f{padding:11px 14px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.landing{min-height:100vh;background:radial-gradient(ellipse at 75% 8%,rgba(114,93,240,.18),transparent 35%),radial-gradient(ellipse at 0 70%,rgba(48,186,169,.09),transparent 34%)}
+.landing-nav{max-width:1180px;margin:auto;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:11px;color:#f4f5fb;font-weight:750;letter-spacing:-.035em;text-decoration:none;font-size:16px}
+.brand-mark{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(145deg,#9a8cff,#6352d8);color:white;font-size:19px;box-shadow:0 8px 24px rgba(113,92,229,.35)}
+.landing-links{display:flex;align-items:center;gap:22px}.landing-links a{color:#aeb8ca;text-decoration:none;font-size:13px;transition:color .2s}.landing-links a:hover{color:#fff}
+.landing-actions{display:flex;align-items:center;gap:9px}.landing-actions button,.landing-links button{white-space:nowrap}
+.hero{max-width:1180px;margin:0 auto;padding:94px 28px 80px;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);align-items:center;gap:72px;min-height:590px}
+.hero-kicker{display:inline-flex;align-items:center;gap:9px;padding:7px 11px;border:1px solid rgba(89,217,197,.22);border-radius:99px;background:rgba(89,217,197,.06);color:#8de7d7;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.hero-kicker:before{content:"";width:7px;height:7px;border-radius:50%;background:#59d9c5;box-shadow:0 0 14px #59d9c5}
+.hero h1{max-width:700px;margin:22px 0 17px;font-size:clamp(43px,6.3vw,76px);line-height:.99;letter-spacing:-.075em;color:#f4f5fb;font-weight:760}.hero h1 em{font-style:normal;background:linear-gradient(100deg,#a99bff 12%,#65dfcc 95%);background-clip:text;-webkit-background-clip:text;color:transparent}
+.hero-copy{max-width:540px;color:#a4afc2;font-size:17px;line-height:1.7;margin:0 0 28px}.hero-ctas{display:flex;flex-wrap:wrap;gap:11px}.hero-ctas .btn{padding:11px 17px;font-size:14px}
+.hero-note{margin-top:18px;color:#738198;font-size:11px}
+.preview{position:relative;padding:20px;border:1px solid rgba(146,161,190,.2);border-radius:21px;background:linear-gradient(155deg,rgba(24,35,56,.92),rgba(12,20,34,.96));box-shadow:0 32px 100px rgba(0,0,0,.4);transform:rotate(1.2deg)}
+.preview:before{content:"";position:absolute;inset:-1px;border-radius:inherit;background:linear-gradient(140deg,rgba(160,145,255,.23),transparent 38%,rgba(89,217,197,.12));pointer-events:none}
+.preview-top{position:relative;display:flex;align-items:center;justify-content:space-between;padding:2px 1px 17px;border-bottom:1px solid rgba(142,155,177,.13);font-size:12px;color:#dfe7f5;font-weight:700}.live-pill{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:99px;background:rgba(79,224,160,.09);color:#69e3ad;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.live-pill:before{content:"";height:6px;width:6px;border-radius:50%;background:#4fe0a0}
+.preview-stat{position:relative;padding:22px 2px 18px;display:flex;align-items:flex-end;justify-content:space-between}.preview-stat strong{font-size:34px;letter-spacing:-.06em;color:#f0f3fb}.preview-stat span{display:block;color:#8d9ab0;font-size:11px}.preview-stat .trend{color:#64dfbc;font-size:11px;font-weight:700;padding-bottom:5px}
+.preview-chart{height:112px;position:relative;border-bottom:1px solid rgba(142,155,177,.15);overflow:hidden;background:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,rgba(142,155,177,.08) 28px)}.preview-chart svg{width:100%;height:100%;overflow:visible}.preview-chart path{fill:none;stroke:#998aff;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 7px rgba(153,138,255,.5))}.preview-events{position:relative;display:grid;gap:11px;padding:17px 2px 3px}.preview-event{display:grid;grid-template-columns:9px minmax(0,1fr) auto;align-items:center;gap:10px;color:#b8c3d4;font-size:11px}.event-dot{width:7px;height:7px;border-radius:50%;background:#59d9c5;box-shadow:0 0 10px rgba(89,217,197,.6)}.preview-event time{color:#78869d;font-size:10px}
+.landing-bottom{max-width:1180px;margin:0 auto;padding:0 28px 68px}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.feature-card{padding:20px;border:1px solid rgba(142,155,177,.13);border-radius:15px;background:rgba(18,27,43,.55)}.feature-icon{color:#9e91ff;font-size:17px;margin-bottom:16px}.feature-card h3{font-size:14px;margin:0 0 7px;color:#e5ebf6}.feature-card p{font-size:12px;line-height:1.65;color:#8e9bb1;margin:0}
+.landing-footer{max-width:1180px;margin:auto;padding:21px 28px 28px;border-top:1px solid rgba(142,155,177,.12);display:flex;justify-content:space-between;color:#738198;font-size:11px}.landing-footer a{color:#9cabc2;text-decoration:none;margin-left:16px}
+.auth-layout{max-width:980px;margin:5vh auto;padding:24px;display:grid;grid-template-columns:1fr minmax(320px,440px);gap:50px;align-items:center}.auth-aside h1{font-size:42px;line-height:1.06;letter-spacing:-.06em;margin:18px 0 12px}.auth-aside p{max-width:400px;color:#98a7bd;line-height:1.7}.auth-aside a{color:#aca1ff;text-decoration:none}.login{margin:0;width:100%;max-width:none}.google-btn{display:flex;width:100%;align-items:center;justify-content:center;gap:11px;padding:11px 14px;border:1px solid #35435a;border-radius:9px;background:#f5f7fb;color:#1d2735;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .18s,box-shadow .18s}.google-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.25)}.google-g{font-weight:800;font-size:17px;background:conic-gradient(from -45deg,#4285f4 0 25%,#34a853 25% 50%,#fbbc05 50% 75%,#ea4335 75%);color:transparent;background-clip:text;-webkit-background-clip:text}.auth-divider{display:flex;align-items:center;gap:12px;color:#748299;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#2b3952;flex:1}.password-hint{color:#8795aa;font-size:11px;line-height:1.5;margin-top:-8px}
+@media(max-width:850px){.hero{gap:35px;padding-top:65px;min-height:520px}.hero h1{font-size:clamp(42px,8vw,64px)}.landing-links{gap:13px}.auth-layout{grid-template-columns:1fr minmax(300px,420px);gap:28px}}
+@media(max-width:650px){.landing-nav{padding:15px 17px;flex-wrap:wrap;gap:12px}.landing-links{order:3;width:100%;justify-content:center;padding:8px 0 2px}.landing-actions{margin-left:auto}.landing-actions .btn{padding:7px 9px;font-size:11px}.hero{grid-template-columns:1fr;gap:35px;padding:58px 19px 50px;min-height:0}.hero h1{font-size:clamp(43px,12vw,62px)}.hero-copy{font-size:15px}.preview{max-width:480px;width:100%;margin:0 auto;transform:none;padding:16px}.landing-bottom{padding:0 18px 45px}.feature-grid{grid-template-columns:1fr}.feature-card{padding:17px}.landing-footer{padding:18px;gap:14px;flex-wrap:wrap}.auth-layout{display:block;margin:0 auto;padding:14px}.auth-aside{padding:26px 10px 12px}.auth-aside h1{font-size:32px}.auth-aside p{font-size:13px}.auth-layout .login{margin:0 auto 24px;padding:25px}}
 </style>
 </head>
 <body>
@@ -123,6 +145,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let authenticated = false;
 let authMode = 'signin';
+let googleEnabled = false;
 let me = null, watches = [], editing = null, pollTimer = null;
 
 async function api(path, opts = {}) {
@@ -156,24 +179,73 @@ const STATUS = { ok: ['OK', 'b-ok'], error: ['Error', 'b-error'], blocked: ['Blo
 
 // ---------- screens ----------
 function render() {
-  if (!authenticated) return renderLogin();
+  if (!authenticated) return renderLanding();
   renderMain();
+}
+
+function openAuth(mode) {
+  authMode = mode;
+  renderLogin();
+}
+
+function renderLanding() {
+  const authError = new URLSearchParams(location.search).get('auth_error');
+  $('#app').innerHTML = `
+  <div class="landing">
+    <nav class="landing-nav">
+      <a class="brand" href="/"><span class="brand-mark">↗</span> Change Detector</a>
+      <div class="landing-links"><a href="/docs">Architecture</a><a href="/test-status" target="_blank" rel="noreferrer">Live test status ↗</a></div>
+      <div class="landing-actions"><button class="btn" id="landingSignin">Sign in</button><button class="btn primary" id="landingSignup">Create account</button></div>
+    </nav>
+    <main class="hero">
+      <section>
+        <div class="hero-kicker">Calm, reliable page monitoring</div>
+        <h1>Know what changed.<br><em>Ignore the noise.</em></h1>
+        <p class="hero-copy">Keep an eye on the pages that matter. Change Detector tracks meaningful updates, filters routine page noise, and brings the important details into focus.</p>
+        ${authError ? '<p class="err" role="alert">Google sign-in could not be completed. Please try again or use your email and password.</p>' : ''}
+        <div class="hero-ctas"><button class="btn primary" id="heroSignup">Start monitoring <span aria-hidden="true">→</span></button><button class="btn" id="heroDocs">Explore the architecture</button></div>
+        <div class="hero-note">Built for public pages · Thoughtful alerts · No browser binaries required</div>
+      </section>
+      <aside class="preview" aria-label="Illustration of the monitoring dashboard">
+        <div class="preview-top"><span>Monitoring overview</span><span class="live-pill">System ready</span></div>
+        <div class="preview-stat"><div><strong>24</strong><span>pages monitored</span></div><div class="trend">↑ 3 updates this week</div></div>
+        <div class="preview-chart"><svg viewBox="0 0 440 112" preserveAspectRatio="none" aria-hidden="true"><path d="M0 82 C20 80 25 64 45 68 S75 76 92 54 S125 64 143 55 S172 63 190 37 S219 52 239 42 S267 51 286 26 S316 39 335 33 S364 44 382 18 S418 28 440 12"/></svg></div>
+        <div class="preview-events"><div class="preview-event"><i class="event-dot"></i><span>Pricing page · Text updated</span><time>2m ago</time></div><div class="preview-event"><i class="event-dot"></i><span>Product page · Stock changed</span><time>18m ago</time></div><div class="preview-event"><i class="event-dot"></i><span>Release notes · New section</span><time>1h ago</time></div></div>
+      </aside>
+    </main>
+    <section class="landing-bottom"><div class="feature-grid">
+      <article class="feature-card"><div class="feature-icon">⌁</div><h3>Signal over noise</h3><p>Ignore regions, tune sensitivity, and keep rotating banners or counters from flooding your inbox.</p></article>
+      <article class="feature-card"><div class="feature-icon">◷</div><h3>A clear change history</h3><p>Review text differences and version timelines so you can see what changed and when.</p></article>
+      <article class="feature-card"><div class="feature-icon">⛨</div><h3>Designed with care</h3><p>Public pages only, shared fetch jobs, and durable account sessions keep monitoring focused and efficient.</p></article>
+    </div></section>
+    <footer class="landing-footer"><span>© ${new Date().getFullYear()} Change Detector</span><span><a href="/docs">HLD &amp; LLD</a><a href="/test-status" target="_blank" rel="noreferrer">Test status</a></span></footer>
+  </div>`;
+  $('#landingSignin').onclick = () => openAuth('signin');
+  $('#landingSignup').onclick = () => openAuth('signup');
+  $('#heroSignup').onclick = () => openAuth('signup');
+  $('#heroDocs').onclick = () => { location.href = '/docs'; };
+  if (authError) history.replaceState(null, '', '/');
 }
 
 function renderLogin() {
   const signingUp = authMode === 'signup';
   $('#app').innerHTML = `
-  <div class="login">
-    <h1>Change Detector</h1>
-    <p>${signingUp ? 'Create an account to keep your monitored pages and alerts together.' : 'Sign in to return to your monitored pages and alerts.'}</p>
-    <form id="loginForm">
-      <label>Email address <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
-      <label>Password <input id="lgPassword" type="password" autocomplete="${signingUp ? 'new-password' : 'current-password'}" placeholder="${signingUp ? 'At least 10 characters' : 'Enter your password'}" minlength="${signingUp ? 10 : 1}" maxlength="1024" required></label>
-      ${signingUp ? '<label>Confirm password <input id="lgConfirm" type="password" autocomplete="new-password" minlength="10" maxlength="1024" required></label>' : ''}
-      <button class="btn primary" id="lgLogin" type="submit">${signingUp ? 'Create account' : 'Sign in'}</button>
-    </form>
-    <p class="auth-switch">${signingUp ? 'Already have an account?' : 'New to Change Detector?'} <button type="button" id="authModeToggle">${signingUp ? 'Sign in' : 'Create an account'}</button></p>
-    <div class="err" id="lgErr"></div>
+  <div class="auth-layout">
+    <aside class="auth-aside"><a class="brand" href="/"><span class="brand-mark">↗</span> Change Detector</a><h1>${signingUp ? 'A clearer view of what matters.' : 'Welcome back.'}</h1><p>${signingUp ? 'Create your workspace and start following the pages that matter to you.' : 'Your watched pages and meaningful updates are right where you left them.'}</p><a href="/docs">Read the system design →</a></aside>
+    <section class="login">
+      <a href="/" style="color:#8e9bb1;text-decoration:none;font-size:12px">← Back to overview</a>
+      <h1>${signingUp ? 'Create your account' : 'Sign in'}</h1>
+      <p>${signingUp ? 'A few details and you are ready to go.' : 'Continue to your monitoring dashboard.'}</p>
+      ${googleEnabled ? `<a class="google-btn" href="/auth/google"><span class="google-g">G</span> Continue with Google</a><div class="auth-divider">or use email</div>` : ''}
+      <form id="loginForm">
+        <label>Email address <input id="lgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+        <label>Password <input id="lgPassword" type="password" autocomplete="${signingUp ? 'new-password' : 'current-password'}" placeholder="${signingUp ? 'Create a strong password' : 'Enter your password'}" minlength="${signingUp ? 8 : 1}" maxlength="${signingUp ? 72 : 1024}" required></label>
+        ${signingUp ? '<small class="password-hint">Use at least 8 characters with uppercase and lowercase letters, a number, and a special character.</small><label>Confirm password <input id="lgConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></label>' : ''}
+        <button class="btn primary" id="lgLogin" type="submit">${signingUp ? 'Create account' : 'Sign in'}</button>
+      </form>
+      <p class="auth-switch">${signingUp ? 'Already have an account?' : 'New to Change Detector?'} <button type="button" id="authModeToggle">${signingUp ? 'Sign in' : 'Create an account'}</button></p>
+      <div class="err" id="lgErr" role="alert"></div>
+    </section>
   </div>`;
   $('#authModeToggle').onclick = () => { authMode = signingUp ? 'signin' : 'signup'; renderLogin(); };
   $('#loginForm').onsubmit = async (event) => {
@@ -193,6 +265,10 @@ function renderLogin() {
 }
 
 async function init() {
+  try {
+    const providers = await fetch('/api/auth/providers').then((r) => r.json());
+    googleEnabled = !!providers.googleEnabled;
+  } catch {}
   try { await api('/me'); authenticated = true; }
   catch { authenticated = false; }
   render();
