@@ -131,6 +131,6 @@ By default, the test checks a stable public HTML page. Set `SCRAPER_TEST_URL` to
 3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `BASE_URL`, and a stable `SECRET` in the Railway service environment.
 4. Restart or redeploy the service. The Google option appears on the landing and sign-in pages when both client credentials are present.
 
-### Railway deployment notes
+### Railway deployment notes 
 
 Use `npm install` as the build command and `npm start` as the start command. Railway provides `PORT` at runtime. Attach a persistent volume and set `DATA_DIR` to its mount path (for example, `/data`) to retain the SQLite database across deployments. Keep `SECRET` stable between releases so existing signed links and encrypted integration credentials remain valid.
