@@ -20,7 +20,7 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Automated change detection:** A scheduler and persistent job queue check each distinct URL once per cycle, even when multiple users watch that page.
 - **Noise controls:** Strip common dynamic noise, select CSS regions to watch or ignore, tune sensitivity, and filter alerts by keywords.
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
-- **Gemini change summaries:** When `GEMINI_API_KEY` is configured, the Google Gen AI SDK summarizes each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; failed or disabled AI calls fall back to the built-in summary.
+- **AI-Powered Change Summaries (powered by Google Gemini):** Set `GEMINI_API_KEY` to have the Google Gen AI SDK summarize each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; without a key or if Gemini is unavailable, the app uses its built-in summary.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
 - **Custom-built interface:** A responsive dashboard and landing page with clear status badges, compact data views, and a dedicated architecture guide.
 - **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
@@ -101,7 +101,7 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000). The first visit presents the landing page, then users can create an account with email and password or use Google after OAuth credentials are configured.
 
-To enable Gemini change summaries locally, add your key to `GEMINI_API_KEY` in `.env`. The server reads this file on startup; keep `.env` private and use `.env.example` as the shareable template.
+To enable AI-powered change summaries locally, copy `.env.example` to `.env` and replace the `GEMINI_API_KEY` placeholder with your Google Gemini API key. `GEMINI_API_KEY` is required for Gemini summaries; the rest of the app can run without it using built-in summaries. The server reads `.env` on startup. Keep `.env` private and use `.env.example` as the shareable template.
 
 Run the scraper smoke check with:
 
