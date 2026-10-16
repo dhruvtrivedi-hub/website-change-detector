@@ -396,7 +396,7 @@ async function rowAction(a, id) {
     if (a === 'edit') return openWatch(w);
     if (a === 'timeline') return openTimeline(w);
     if (a === 'numbers') return openNumbers(w);
-    if (a === 'rss') { await navigator.clipboard?.writeText(w.rss_url).catch(() => {}); return alert('Feed URL (copied if allowed):\n\n' + w.rss_url); }
+    if (a === 'rss') return window.open(w.rss_url, '_blank', 'noopener,noreferrer');
     if (a === 'check') { await api(`/watches/${id}/check`, { method: 'POST' }); return alert('Check queued. Results appear here shortly.'); }
     if (a === 'del' && confirm(`Delete "${w.name}" and all its saved versions?`)) { await api(`/watches/${id}`, { method: 'DELETE' }); refresh(); }
   } catch (e) { alert(e.message); }
