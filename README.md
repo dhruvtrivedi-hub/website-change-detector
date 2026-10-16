@@ -20,6 +20,7 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Automated change detection:** A scheduler and persistent job queue check each distinct URL once per cycle, even when multiple users watch that page.
 - **Noise controls:** Strip common dynamic noise, select CSS regions to watch or ignore, tune sensitivity, and filter alerts by keywords.
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
+- **Gemini change summaries:** When `GEMINI_API_KEY` is configured, the Google Gen AI SDK summarizes each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; failed or disabled AI calls fall back to the built-in summary.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
 - **Custom-built interface:** A responsive dashboard and landing page with clear status badges, compact data views, and a dedicated architecture guide.
 - **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
@@ -94,10 +95,13 @@ Core data is stored in SQLite tables for `users`, `sessions`, `pages`, `watches`
 git clone <https://github.com/dhruvtrivedi-hub/website-change-detector.git>
 cd website-change-detector
 npm install
+cp .env.example .env
 npm start
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The first visit presents the landing page, then users can create an account with email and password or use Google after OAuth credentials are configured.
+
+To enable Gemini change summaries locally, add your key to `GEMINI_API_KEY` in `.env`. The server reads this file on startup; keep `.env` private and use `.env.example` as the shareable template.
 
 Run the scraper smoke check with:
 
@@ -121,7 +125,8 @@ By default, the test checks a stable public HTML page. Set `SCRAPER_TEST_URL` to
 | `SCRAPER_TEST_URL` | Optional public URL used by `npm test` and `/test-status`. |
 | `SCRAPER_USER_AGENT` | Optional identifying User-Agent for monitored page requests. |
 | `SMTP_URL`, `MAIL_FROM` | Optional email delivery configuration. Without SMTP, messages are logged. |
-| `ANTHROPIC_API_KEY`, `AI_MODEL` | Optional AI-written change summaries. A built-in summary is used without a key. |
+| `GEMINI_API_KEY` | Optional Gemini API key for AI-written version and alert summaries. Without it, the built-in summary is used. |
+| `GEMINI_MODEL` | Optional Gemini model ID; defaults to the low-latency `gemini-3.5-flash-lite`. |
 | `CONCURRENCY` | Maximum number of page checks processed in parallel; defaults to `3`. |
 
 ### Enable Google sign-in

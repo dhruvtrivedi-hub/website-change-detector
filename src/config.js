@@ -2,6 +2,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+try {
+  process.loadEnvFile();
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
+
 const env = process.env;
 const port = Number(env.PORT) || 3000;
 const dataDir = path.resolve(env.DATA_DIR || './data');
@@ -47,10 +53,11 @@ export const config = {
   failureAlertThreshold: 2, // consecutive failed checks before an outage/blocked alert
   noisyStreak: 5, // changes in N consecutive checks => page is "noisy", alerts paused
 
-  // AI change summaries (optional). Without ANTHROPIC_API_KEY the built-in heuristic summary is used.
+  // Gemini change summaries (optional). Without GEMINI_API_KEY the built-in summary is used.
   ai: {
-    apiKey: env.ANTHROPIC_API_KEY || '',
-    model: env.AI_MODEL || 'claude-haiku-5-5',
+    apiKey: env.GEMINI_API_KEY || '',
+    // Flash-Lite is optimized for low-latency, high-throughput text tasks.
+    model: env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     timeoutMs: 15_000, // per request
     budgetPerJobMs: 40_000, // total AI time spent on one page check (all watchers together)
     maxInputChars: 6000, // how much of the diff is sent

@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS watches (
   notify_email INTEGER NOT NULL DEFAULT 1,
   notify_webhook INTEGER NOT NULL DEFAULT 1,
   digest INTEGER NOT NULL DEFAULT 0,
-  ai_summary INTEGER NOT NULL DEFAULT 1,       -- AI-written change summaries (only if the server has an API key)
+  ai_summary INTEGER NOT NULL DEFAULT 1,       -- Gemini-written change summaries (only if the server has an API key)
   rss_token TEXT UNIQUE,
   last_snapshot_id INTEGER,
   last_changed_at INTEGER,

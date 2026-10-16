@@ -8,7 +8,7 @@ import { textDiff, isSignificant, summarize } from './diff.js';
 import { claimJobs, completeJob, failJob, enqueue } from './queue.js';
 import { gate } from './ratelimit.js';
 import { createAlert, diffUrl } from './alerts.js';
-import { aiEnabled, aiSummarize } from './ai.js';
+import { aiEnabled, generateChangeSummary } from './ai.js';
 import { processTrackers } from './tracking.js';
 import { sha256 } from './util/crypto.js';
 
@@ -79,12 +79,11 @@ async function runJob(job) {
     // AI summaries can take a few seconds per watcher: extend the job lock so it is not reclaimed mid-way.
     db.prepare('UPDATE jobs SET locked_until=? WHERE id=?').run(Date.now() + 2 * 60_000, job.id);
     const shotCache = {};
-    const aiBudget = { spent: 0 };
     for (const w of watches) {
       const trackers = trackersOf(w.id);
       try { processTrackers(w, trackers, result.html); }
       catch (e) { console.error(`trackers for watch ${w.id} failed:`, e); }
-      try { await processWatch(w, trackers, result, shotCache, page, aiBudget); }
+      try { await processWatch(w, trackers, result, shotCache, page); }
       catch (e) { console.error(`watch ${w.id} failed:`, e); }
     }
     completeJob(job.id);
@@ -193,7 +192,7 @@ function pruneSnapshots(watchId) {
   }
 }
 
-async function processWatch(w, trackers, result, shotCache, page, aiBudget) {
+async function processWatch(w, trackers, result, shotCache, page) {
   // Tracked numbers have their own alerts and chart, so they are left out of the text diff
   // (otherwise a price change would send two alerts: "number changed" and "page changed").
   const trackerSelectors = trackers.map((t) => t.selector);
@@ -224,7 +223,18 @@ async function processWatch(w, trackers, result, shotCache, page, aiBudget) {
   const d = textDiff(prev.text, text);
   if (!isSignificant(prev.text, text, d, w.sensitivity)) return; // keep old baseline; nothing stored
 
-  let summary = summarize(d); // built-in summary; replaced by an AI summary below if an alert is going out
+  let summary = summarize(d);
+  // The UI no longer exposes a per-watch AI toggle, so don't let a stale
+  // ai_summary value from an older watch prevent the requested summary.
+  if (aiEnabled()) {
+    try {
+      const generated = await generateChangeSummary(prev.text, text);
+      if (typeof generated === 'string' && generated.trim()) summary = generated.trim();
+    } catch (error) {
+      // A Gemini failure must never prevent the changed snapshot from being saved.
+      console.error('Gemini summary generation failed; saving the built-in summary:', error.message);
+    }
+  }
   const snapId = storeSnapshot(w, prev, text, hash, summary, result, shotCache, trackerSelectors);
   const streak = w.change_streak + 1;
   db.prepare('UPDATE watches SET last_changed_at=?, change_streak=?, noisy=? WHERE id=?').run(
@@ -255,21 +265,7 @@ async function processWatch(w, trackers, result, shotCache, page, aiBudget) {
     if (!keywords.some((k) => changed.includes(k))) return;
   }
 
-  // 6) An alert is going out: try for a better, AI-written summary (opt-out per watch, falls back silently).
-  if (w.ai_summary && aiEnabled()) {
-    const ai = await aiSummarize({
-      name: w.name,
-      url: page.url,
-      d,
-      cacheKey: `${prev.hash}:${hash}`,
-      budget: aiBudget,
-    });
-    if (ai) {
-      summary = ai;
-      db.prepare('UPDATE snapshots SET summary=? WHERE id=?').run(summary, snapId);
-    }
-  }
-
+  // The snapshot already contains the AI summary (or built-in fallback) for version history.
   createAlert({
     watch: w,
     kind: 'change',

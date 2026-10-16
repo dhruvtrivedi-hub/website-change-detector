@@ -635,6 +635,7 @@ app.get('/d/:w/:a/:b/:sig', (req, res) => {
 body{font:15px/1.5 system-ui,sans-serif;color:var(--ink);margin:0;padding:24px;background:#f5f6f8}
 main{max-width:1400px;margin:auto}h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 8px}
 .meta{color:var(--muted);margin:0 0 4px}a{color:#2b4acb}
+.summary{margin:18px 0 24px;padding:14px 16px;border:1px solid var(--rule);border-left:3px solid #6654d8;border-radius:9px;background:#fff}.summary b{display:block;margin-bottom:4px;color:#6654d8;font-size:11px;letter-spacing:.08em;text-transform:uppercase}.summary p{margin:0;font-size:14px;line-height:1.55}
 table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;border:1px solid var(--rule)}
 td{vertical-align:top;padding:3px 10px;white-space:pre-wrap;word-break:break-word;font:13px/1.45 ui-monospace,Menlo,monospace;border-left:1px solid var(--rule);width:50%}
 td:first-child{border-left:0}tr.add td:last-child,tr.chg td:last-child{background:var(--add)}tr.del td:first-child,tr.chg td:first-child{background:var(--del)}
@@ -648,6 +649,7 @@ tr.gap td{background:#eef0f4;color:var(--muted);text-align:center;font:12px syst
 <h1>${esc(watch.name)}</h1>
 <p class="meta"><a href="${esc(watch.url)}" rel="noopener noreferrer">${esc(watch.url)}</a></p>
 <p class="meta">${d.added.length} line(s) added, ${d.removed.length} removed</p>
+${B.summary ? `<section class="summary" aria-label="Latest change summary"><b>Latest change</b><p>${esc(B.summary)}</p></section>` : ''}
 <h2>Text changes</h2>
 <div class="heads"><div>Before — ${when(A.created_at)}</div><div>After — ${when(B.created_at)}</div></div>
 <table>${rows || '<tr><td colspan="2">No text differences.</td></tr>'}</table>

@@ -36,8 +36,7 @@ export function isSignificant(prevText, newText, d, sensitivity) {
   return true;
 }
 
-// One-line, human summary (built-in heuristic). When ANTHROPIC_API_KEY is set, worker.js asks ai.js for a better
-// one just before an alert goes out and falls back to this text if that fails.
+// One-line, human summary (built-in heuristic), used when Gemini is not configured or returns no summary.
 export function summarize(d) {
   const a = d.added.length;
   const r = d.removed.length;
