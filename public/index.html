@@ -176,8 +176,11 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 :root[data-theme="light"] .landing-footer{color:#69778a;border-color:#dce2e9}:root[data-theme="light"] .landing-footer a{color:#526174}
 .theme-toggle{white-space:nowrap;min-width:92px}
 .auth-brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.settings-email{padding:13px 15px;border:1px solid var(--rule);border-radius:10px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.settings-email strong{color:var(--ink);font-size:14px;overflow-wrap:anywhere;text-align:right}
 @media(max-width:760px){header.top .theme-toggle{flex:1 1 auto}}
 @media(max-width:650px){.landing-actions .theme-toggle{min-width:0}}
+@media(max-width:420px){.settings-email{align-items:flex-start;flex-direction:column;gap:3px}.settings-email strong{text-align:left}}
 
 </style>
 </head>
@@ -490,7 +493,7 @@ function openSettings() {
   <form method="dialog">
     <div class="dlg-h">Alert settings</div>
     <div class="dlg-b">
-      <p style="margin:0;color:var(--muted)">Alerts go to <b>${esc(me.email)}</b> ${me.email_delivery ? '' : '(email sending is not configured on this server yet, so alerts are printed in the server log)'}.</p>
+      <div class="settings-email"><span>Alert email</span><strong>${esc(me.email)}</strong></div>
       <label>Discord webhook URL <small>${me.discord_configured ? 'A webhook is saved. Enter a new one to replace it, or leave blank to keep it.' : 'Server settings → Integrations → Webhooks.'}</small>
         <input type="password" id="sDiscord" autocomplete="off" placeholder="https://discord.com/api/webhooks/…"></label>
       <div class="row">
