@@ -91,7 +91,7 @@ Core data is stored in SQLite tables for `users`, `sessions`, `pages`, `watches`
 ### Run the app
 
 ```bash
-git clone <your-repository-url>
+git clone <https://github.com/dhruvtrivedi-hub/website-change-detector.git>
 cd website-change-detector
 npm install
 npm start
