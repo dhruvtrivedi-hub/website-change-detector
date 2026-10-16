@@ -52,7 +52,7 @@ if (config.googleAuthEnabled) {
   passport.use(new GoogleStrategy({
     clientID: config.googleClientId,
     clientSecret: config.googleClientSecret,
-    callbackURL: config.googleCallbackUrl,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || `${(process.env.BASE_URL || config.baseUrl).replace(/\/$/, '')}/auth/google/callback`,
   }, (accessToken, refreshToken, profile, done) => {
     findOrCreateGoogleUser(profile).then((user) => done(null, user)).catch(done);
   }));

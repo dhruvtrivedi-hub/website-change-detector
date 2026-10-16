@@ -21,7 +21,6 @@ export const config = {
   baseUrl: (env.BASE_URL || `http://localhost:${port}`).replace(/\/$/, ''),
   googleClientId: env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: env.GOOGLE_CLIENT_SECRET || '',
-  googleCallbackUrl: env.GOOGLE_CALLBACK_URL || `${(env.BASE_URL || `http://localhost:${port}`).replace(/\/$/, '')}/auth/google/callback`,
   get googleAuthEnabled() { return Boolean(this.googleClientId && this.googleClientSecret); },
   dataDir,
   secret: loadSecret(),
