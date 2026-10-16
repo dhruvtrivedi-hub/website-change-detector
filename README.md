@@ -21,7 +21,8 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Noise controls:** Strip common dynamic noise, select CSS regions to watch or ignore, tune sensitivity, and filter alerts by keywords.
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
-- **Custom-built interface:** A responsive, dark dashboard and landing page with clear status badges, compact data views, and a dedicated architecture guide.
+- **Custom-built interface:** A responsive dashboard and landing page with clear status badges, compact data views, and a dedicated architecture guide.
+- **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
 - **Lightweight scraping:** Axios fetches initial page HTML and Cheerio extracts text. No Playwright, Chromium download, or system browser installation is required.
 
 ## Architecture: HLD & LLD summary

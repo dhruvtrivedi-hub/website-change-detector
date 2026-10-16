@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Change Detector</title>
+<script>try{const savedTheme=localStorage.getItem('change-detector-theme');if(savedTheme==='light'||savedTheme==='dark')document.documentElement.dataset.theme=savedTheme;}catch{}</script>
 <style>
 :root{
   color-scheme:dark;--bg:#080d18;--panel:#101827;--ink:#edf3ff;--muted:#8e9bb1;--rule:#243149;--accent:#8b7cff;--accent2:#59d9c5;
@@ -130,6 +131,54 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 .auth-layout{max-width:980px;margin:5vh auto;padding:24px;display:grid;grid-template-columns:1fr minmax(320px,440px);gap:50px;align-items:center}.auth-aside h1{font-size:42px;line-height:1.06;letter-spacing:-.06em;margin:18px 0 12px}.auth-aside p{max-width:400px;color:#98a7bd;line-height:1.7}.auth-aside a{color:#aca1ff;text-decoration:none}.login{margin:0;width:100%;max-width:none}.google-btn{display:flex;width:100%;align-items:center;justify-content:center;gap:11px;padding:11px 14px;border:1px solid #35435a;border-radius:9px;background:#f5f7fb;color:#1d2735;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .18s,box-shadow .18s}.google-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,0,0,.25)}.google-g{font-weight:800;font-size:17px;background:conic-gradient(from -45deg,#4285f4 0 25%,#34a853 25% 50%,#fbbc05 50% 75%,#ea4335 75%);color:transparent;background-clip:text;-webkit-background-clip:text}.auth-divider{display:flex;align-items:center;gap:12px;color:#748299;font-size:10px;text-transform:uppercase;letter-spacing:.12em}.auth-divider:before,.auth-divider:after{content:"";height:1px;background:#2b3952;flex:1}.password-hint{color:#8795aa;font-size:11px;line-height:1.5;margin-top:-8px}
 @media(max-width:850px){.hero{gap:35px;padding-top:65px;min-height:520px}.hero h1{font-size:clamp(42px,8vw,64px)}.landing-links{gap:13px}.auth-layout{grid-template-columns:1fr minmax(300px,420px);gap:28px}}
 @media(max-width:650px){.landing-nav{padding:15px 17px;flex-wrap:wrap;gap:12px}.landing-links{order:3;width:100%;justify-content:center;padding:8px 0 2px}.landing-actions{margin-left:auto}.landing-actions .btn{padding:7px 9px;font-size:11px}.hero{grid-template-columns:1fr;gap:35px;padding:58px 19px 50px;min-height:0}.hero h1{font-size:clamp(43px,12vw,62px)}.hero-copy{font-size:15px}.preview{max-width:480px;width:100%;margin:0 auto;transform:none;padding:16px}.landing-bottom{padding:0 18px 45px}.feature-grid{grid-template-columns:1fr}.feature-card{padding:17px}.landing-footer{padding:18px;gap:14px;flex-wrap:wrap}.auth-layout{display:block;margin:0 auto;padding:14px}.auth-aside{padding:26px 10px 12px}.auth-aside h1{font-size:32px}.auth-aside p{font-size:13px}.auth-layout .login{margin:0 auto 24px;padding:25px}}
+/* Theme tokens and light-mode surfaces */
+:root{color-scheme:dark;--surface:#101827;--surface-raised:#151f30;--surface-input:#0b1321;--line-soft:#26344c;--ink-soft:#bbc7da;--ink-faint:#8493aa}
+:root[data-theme="light"]{color-scheme:light;--bg:#f4f6f8;--panel:#fff;--ink:#202a36;--muted:#657386;--rule:#dce2e9;--accent:#6654d8;--accent2:#168c78;--ok:#117b50;--ok-bg:#e5f5ed;--err:#b52f43;--err-bg:#fcebed;--warn:#93600a;--warn-bg:#fff3d9;--idle-bg:#edf1f5;--surface:#fff;--surface-raised:#f0f3f7;--surface-input:#fff;--line-soft:#d5dde6;--ink-soft:#3e4a59;--ink-faint:#647386}
+:root[data-theme="light"] body{background:#f4f6f8;color:var(--ink)}
+:root[data-theme="light"] header.top{background:rgba(255,255,255,.94);border-color:#dce2e9}
+:root[data-theme="light"] header.top h1:before,:root[data-theme="light"] .brand-mark{background:#6654d8;box-shadow:none}
+:root[data-theme="light"] .dash-intro h2,:root[data-theme="light"] .hero h1,:root[data-theme="light"] .brand{color:#202a36}
+:root[data-theme="light"] .eyebrow{color:#6654d8}:root[data-theme="light"] .eyebrow:before{box-shadow:none}
+:root[data-theme="light"] .btn{color:#344152;background:#fff;border-color:#d3dbe5}
+:root[data-theme="light"] .btn:hover{background:#f1f4f8;border-color:#aebac8}
+:root[data-theme="light"] .btn.primary{background:#6654d8;border-color:#6654d8;color:white}
+:root[data-theme="light"] .btn.primary:hover{background:#5644c5}
+:root[data-theme="light"] .btn.danger{color:#b52f43;background:#fff5f6;border-color:#f0cbd1}
+:root[data-theme="light"] .tablewrap{background:#fff;border-color:#dce2e9;box-shadow:0 10px 28px rgba(31,45,61,.06)}
+:root[data-theme="light"] th{color:#69778a;background:#f5f7fa}
+:root[data-theme="light"] td{color:#475568;border-color:#e9edf2}
+:root[data-theme="light"] tbody tr:hover{background:#f5f3ff;box-shadow:inset 3px 0 var(--accent)}
+:root[data-theme="light"] .name{color:#202a36}:root[data-theme="light"] .url,:root[data-theme="light"] .note{color:#68778a}
+:root[data-theme="light"] .b-pending{color:#566477;background:#edf1f5;border-color:#dce2e9}
+:root[data-theme="light"] .empty:before{border-color:#dce2e9;background:#f1efff}
+:root[data-theme="light"] dialog{color:#202a36;background:#fff;border-color:#d6dee8;box-shadow:0 24px 70px rgba(27,39,53,.2)}
+:root[data-theme="light"] dialog::backdrop{background:rgba(29,39,52,.42)}
+:root[data-theme="light"] .dlg-h,:root[data-theme="light"] .dlg-f{background:#f8f9fb}
+:root[data-theme="light"] label,:root[data-theme="light"] .check{color:#344152}
+:root[data-theme="light"] input[type=text],:root[data-theme="light"] input[type=url],:root[data-theme="light"] input[type=email],:root[data-theme="light"] input[type=password],:root[data-theme="light"] input[type=number],:root[data-theme="light"] select,:root[data-theme="light"] textarea{color:#202a36;background:#fff;border-color:#cbd4df}
+:root[data-theme="light"] input::placeholder,:root[data-theme="light"] textarea::placeholder{color:#8995a4}:root[data-theme="light"] select option{color:#202a36;background:#fff}
+:root[data-theme="light"] .login{color:#202a36;background:#fff;border-color:#dce2e9;box-shadow:0 16px 44px rgba(31,45,61,.09)}
+:root[data-theme="light"] .login p,:root[data-theme="light"] .auth-aside p{color:#657386}
+:root[data-theme="light"] .auth-switch button,:root[data-theme="light"] .auth-aside a{color:#5b49c5}
+:root[data-theme="light"] .landing{background:#f4f6f8}
+:root[data-theme="light"] .landing-links a{color:#526174}:root[data-theme="light"] .landing-links a:hover{color:#202a36}
+:root[data-theme="light"] .hero-kicker{color:#177966;background:#e7f4f0;border-color:#c7e6dc}:root[data-theme="light"] .hero-kicker:before{box-shadow:none}
+:root[data-theme="light"] .hero h1 em{background:none;color:#6654d8}
+:root[data-theme="light"] .hero-copy{color:#59687a}:root[data-theme="light"] .hero-note{color:#6b7888}
+:root[data-theme="light"] .preview{background:#fff;border-color:#dce2e9;box-shadow:0 16px 44px rgba(31,45,61,.09);transform:none}
+:root[data-theme="light"] .preview:before{display:none}:root[data-theme="light"] .preview-top{color:#344152;border-color:#e3e8ee}
+:root[data-theme="light"] .preview-stat strong{color:#202a36}:root[data-theme="light"] .preview-stat span,:root[data-theme="light"] .preview-event{color:#526174}
+:root[data-theme="light"] .preview-stat .trend,:root[data-theme="light"] .live-pill{color:#117b50}
+:root[data-theme="light"] .preview-chart{border-color:#e3e8ee;background:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,#edf0f4 28px)}
+:root[data-theme="light"] .preview-chart path{stroke:#6654d8;filter:none}:root[data-theme="light"] .event-dot{box-shadow:none}
+:root[data-theme="light"] .feature-card{background:#fff;border-color:#dce2e9}
+:root[data-theme="light"] .feature-icon,:root[data-theme="light"] .feature-card h3{color:#344152}:root[data-theme="light"] .feature-card p{color:#657386}
+:root[data-theme="light"] .landing-footer{color:#69778a;border-color:#dce2e9}:root[data-theme="light"] .landing-footer a{color:#526174}
+.theme-toggle{white-space:nowrap;min-width:92px}
+.auth-brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+@media(max-width:760px){header.top .theme-toggle{flex:1 1 auto}}
+@media(max-width:650px){.landing-actions .theme-toggle{min-width:0}}
+
 </style>
 </head>
 <body>
@@ -143,6 +192,25 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 <script>
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function themeButton() {
+  const light = document.documentElement.dataset.theme === 'light';
+  return `<button class="btn theme-toggle" id="themeToggle" type="button" aria-label="Switch to ${light ? 'dark' : 'light'} mode" title="Switch to ${light ? 'dark' : 'light'} mode">${light ? '☾ Dark' : '☀ Light'}</button>`;
+}
+function updateThemeButtons() {
+  const light = document.documentElement.dataset.theme === 'light';
+  document.querySelectorAll('#themeToggle').forEach((button) => {
+    button.textContent = light ? '☾ Dark' : '☀ Light';
+    button.setAttribute('aria-label', `Switch to ${light ? 'dark' : 'light'} mode`);
+    button.title = `Switch to ${light ? 'dark' : 'light'} mode`;
+  });
+}
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#themeToggle')) return;
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('change-detector-theme', next); } catch {}
+  updateThemeButtons();
+});
 let authenticated = false;
 let authMode = 'signin';
 let googleEnabled = false;
@@ -195,7 +263,7 @@ function renderLanding() {
     <nav class="landing-nav">
       <a class="brand" href="/"><span class="brand-mark">↗</span> Change Detector</a>
       <div class="landing-links"><a href="/docs">Architecture</a><a href="/test-status" target="_blank" rel="noreferrer">Live test status ↗</a></div>
-      <div class="landing-actions"><button class="btn" id="landingSignin">Sign in</button><button class="btn primary" id="landingSignup">Create account</button></div>
+      <div class="landing-actions">${themeButton()}<button class="btn" id="landingSignin">Sign in</button><button class="btn primary" id="landingSignup">Create account</button></div>
     </nav>
     <main class="hero">
       <section>
@@ -231,7 +299,7 @@ function renderLogin() {
   const signingUp = authMode === 'signup';
   $('#app').innerHTML = `
   <div class="auth-layout">
-    <aside class="auth-aside"><a class="brand" href="/"><span class="brand-mark">↗</span> Change Detector</a><h1>${signingUp ? 'A clearer view of what matters.' : 'Welcome back.'}</h1><p>${signingUp ? 'Create your workspace and start following the pages that matter to you.' : 'Your watched pages and meaningful updates are right where you left them.'}</p><a href="/docs">Read the system design →</a></aside>
+    <aside class="auth-aside"><div class="auth-brand-row"><a class="brand" href="/"><span class="brand-mark">↗</span> Change Detector</a>${themeButton()}</div><h1>${signingUp ? 'A clearer view of what matters.' : 'Welcome back.'}</h1><p>${signingUp ? 'Create your workspace and start following the pages that matter to you.' : 'Your watched pages and meaningful updates are right where you left them.'}</p><a href="/docs">Read the system design →</a></aside>
     <section class="login">
       <a href="/" style="color:#8e9bb1;text-decoration:none;font-size:12px">← Back to overview</a>
       <h1>${signingUp ? 'Create your account' : 'Sign in'}</h1>
@@ -278,7 +346,7 @@ async function renderMain() {
   $('#app').innerHTML = `
   <header class="top">
     <h1>Change Detector</h1>
-    <button class="btn" id="btnSettings">Alert settings</button>
+    ${themeButton()}<button class="btn" id="btnSettings">Alert settings</button>
     <button class="btn primary" id="btnAdd">Add watch</button>
     <button class="btn" id="btnOut">Sign out</button>
   </header>
