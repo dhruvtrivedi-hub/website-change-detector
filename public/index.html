@@ -34,6 +34,7 @@ tbody tr{transition:background .2s ease,box-shadow .2s ease}tbody tr:hover{backg
 .b-ok{background:var(--ok-bg);color:var(--ok);border-color:rgba(79,224,160,.19)}.b-error{background:var(--err-bg);color:var(--err);border-color:rgba(255,123,134,.2)}
 .b-blocked{background:var(--warn-bg);color:var(--warn);border-color:rgba(255,197,107,.2)}.b-pending{background:var(--idle-bg);color:#a8b5ca;border-color:#303c50}
 .note{font-size:11px;color:var(--muted);margin-top:5px;max-width:260px}
+.scheduler-statusbar{display:flex;align-items:center;gap:11px;margin:0 2px 17px;padding:10px 13px;border:1px solid rgba(142,155,177,.13);border-radius:9px;background:rgba(18,28,45,.58);color:var(--muted);font-size:12px;animation:rise .35s ease both}.scheduler-statusbar .badge{flex:none}.scheduler-status-copy{min-width:0}
 .actions{display:flex;gap:6px;flex-wrap:wrap}
 .empty{padding:64px 24px;text-align:center;color:var(--muted)}.empty:before{content:"◉";display:grid;place-items:center;width:52px;height:52px;margin:0 auto 14px;border:1px solid #34415a;border-radius:16px;color:var(--accent);font-size:24px;background:rgba(139,124,255,.08)}
 dialog{color:var(--ink);background:#111b2b;border:1px solid #33415a;border-radius:16px;padding:0;max-width:640px;width:calc(100% - 24px);box-shadow:0 28px 90px rgba(0,0,0,.62);animation:rise .2s ease both}
@@ -111,6 +112,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
   .actions .btn{font-size:11px;padding:7px 6px}
   .login{margin:5vh 12px;padding:23px}
   .dlg-b{padding:14px}.dlg-h{padding:14px}.dlg-f{padding:11px 14px}
+  .scheduler-statusbar{margin-bottom:14px;padding:9px 10px;font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .landing{min-height:100vh;background:radial-gradient(ellipse at 75% 8%,rgba(114,93,240,.18),transparent 35%),radial-gradient(ellipse at 0 70%,rgba(48,186,169,.09),transparent 34%)}
@@ -149,6 +151,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 :root[data-theme="light"] .btn.primary:hover{background:#5644c5}
 :root[data-theme="light"] .btn.danger{color:#b52f43;background:#fff5f6;border-color:#f0cbd1}
 :root[data-theme="light"] .tablewrap{background:#fff;border-color:#dce2e9;box-shadow:0 10px 28px rgba(31,45,61,.06)}
+:root[data-theme="light"] .scheduler-statusbar{background:#fff;border-color:#dce2e9;box-shadow:0 4px 14px rgba(31,45,61,.04)}
 :root[data-theme="light"] th{color:#69778a;background:#f5f7fa}
 :root[data-theme="light"] td{color:#475568;border-color:#e9edf2}
 :root[data-theme="light"] tbody tr:hover{background:#f5f3ff;box-shadow:inset 3px 0 var(--accent)}
@@ -360,7 +363,12 @@ async function renderMain() {
     <button class="btn primary" id="btnAdd">Add watch</button>
     <button class="btn" id="btnOut">Sign out</button>
   </header>
-  <main><section class="dash-intro"><div><div class="eyebrow">Monitoring overview</div><h2>Your pages, at a glance.</h2><p>Meaningful changes surface here. The noise stays out.</p></div></section><div class="tablewrap" id="list"></div></main>`;
+  <main><section class="dash-intro"><div><div class="eyebrow">Monitoring overview</div><h2>Your pages, at a glance.</h2><p>Meaningful changes surface here. The noise stays out.</p></div></section>
+  <section class="scheduler-statusbar" id="schedulerStatus" aria-label="Scheduler status" aria-live="polite">
+    <span class="badge b-pending" id="schedState">Loading</span>
+    <span class="scheduler-status-copy" id="schedMeta">Checking scheduler status…</span>
+  </section>
+  <div class="tablewrap" id="list"></div></main>`;
   $('#btnAdd').onclick = () => openWatch(null);
   $('#btnSettings').onclick = openSettings;
   $('#btnOut').onclick = logout;
@@ -370,7 +378,12 @@ async function renderMain() {
 }
 
 async function refresh() {
-  [me, watches] = await Promise.all([api('/me'), api('/watches')]);
+  const [currentUser, currentWatches, scheduler] = await Promise.all([
+    api('/me'), api('/watches'), api('/scheduler-status').catch(() => null),
+  ]);
+  me = currentUser;
+  watches = currentWatches;
+  renderSchedulerStatus(scheduler);
   const el = $('#list');
   if (!el) return;
   if (!watches.length) {
@@ -398,6 +411,20 @@ async function refresh() {
         </div></td></tr>`;
     }).join('')}</tbody></table>`;
   el.querySelectorAll('button[data-a]').forEach((b) => (b.onclick = () => rowAction(b.dataset.a, Number(b.dataset.id))));
+}
+
+function renderSchedulerStatus(status) {
+  const badge = $('#schedState');
+  if (!badge) return;
+  if (!status) {
+    badge.className = 'badge b-error';
+    badge.textContent = 'Unavailable';
+    $('#schedMeta').textContent = 'Scheduler status unavailable';
+    return;
+  }
+  badge.className = `badge ${status.state === 'running' ? 'b-ok' : 'b-pending'}`;
+  badge.textContent = status.state === 'running' ? 'Running' : 'Starting';
+  $('#schedMeta').textContent = `Scheduler ${status.state === 'running' ? 'active' : 'starting'} · scans every ${Math.max(1, Math.round(status.schedulerIntervalMs / 1000))} sec`;
 }
 
 async function rowAction(a, id) {

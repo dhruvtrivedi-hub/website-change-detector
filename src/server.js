@@ -16,7 +16,7 @@ import { assertPublicUrl, normalizeUrl } from './util/ssrf.js';
 import { sha256, randomToken, encrypt, safeEqual } from './util/crypto.js';
 import { gate } from './ratelimit.js';
 import { enqueue, cleanupJobs } from './queue.js';
-import { schedulerTick, startWorker } from './worker.js';
+import { getWorkerStatus, schedulerTick, startWorker } from './worker.js';
 import { diffUrl, sign, retryUnsent, sendDigests } from './alerts.js';
 import { textDiff, sideBySide, imageDiff } from './diff.js';
 import { aiEnabled } from './ai.js';
@@ -452,6 +452,17 @@ app.get('/api/me', auth, (req, res) => {
     telegram_chat_id: u.telegram_chat_id || '',
     email_delivery: !!config.smtpUrl,
     ai_enabled: aiEnabled(),
+  });
+});
+
+app.get('/api/scheduler-status', auth, (req, res) => {
+  const now = Date.now();
+  const worker = getWorkerStatus();
+  const schedulerFresh = worker.schedulerLastTickAt != null && now - worker.schedulerLastTickAt < config.tickMs * 3;
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    state: schedulerFresh ? 'running' : 'starting',
+    schedulerIntervalMs: config.tickMs,
   });
 });
 

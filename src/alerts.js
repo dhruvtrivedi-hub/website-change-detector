@@ -53,9 +53,13 @@ function channelsFor(user, watch) {
 const TITLES = { change: 'Page changed', status: 'Page problem', noisy: 'Page changes constantly', number: 'Tracked number changed' };
 
 function format(watch, a, pageUrl) {
-  const lines = [`${TITLES[a.kind] || 'Alert'}: ${watch.name}`, a.summary];
+  const lines = [
+    `${TITLES[a.kind] || 'Alert'}: ${watch.name}`,
+    `Watch: ${watch.name}`,
+    `URL: ${pageUrl}`,
+    `Change details: ${a.summary}`,
+  ];
   if (a.link) lines.push(`Diff: ${a.link}`);
-  lines.push(`Page: ${pageUrl}`);
   return lines.join('\n');
 }
 

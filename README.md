@@ -18,8 +18,10 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Password authentication:** Email sign-up and sign-in with an 8-character minimum plus uppercase, lowercase, numeric, and special-character requirements. Passwords are stored as bcrypt hashes; legacy scrypt hashes are upgraded on successful sign-in.
 - **Persistent sessions:** Both sign-in methods use the app’s database-backed session cookie, so accounts return to the same watches after browser restarts.
 - **Automated change detection:** A scheduler and persistent job queue check each distinct URL once per cycle, even when multiple users watch that page.
+- **Scheduler status indicator:** A subtle status bar above the watches table shows whether the background scheduler is running and how often it scans for due checks.
 - **Noise controls:** Strip common dynamic noise, select CSS regions to watch or ignore, tune sensitivity, and filter alerts by keywords.
-- **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
+- **Webhook & Telegram/Discord alerts:** Enable the alert toggle per watch and configure a Discord webhook URL or Telegram bot token/chat ID in Alert settings. On meaningful changes, the server sends a JSON POST to Discord or Telegram with the watch name, page URL, change details (including the Gemini summary when enabled), and signed diff link. Credentials are encrypted at rest; alert delivery is deduplicated and retried.
+- **Useful history and alerts:** Review text changes and per-page timelines. Send email alerts with deduplication and optional daily digests.
 - **AI-Powered Change Summaries (powered by Google Gemini):** Set `GEMINI_API_KEY` to have the Google Gen AI SDK summarize each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; without a key or if Gemini is unavailable, the app uses its built-in summary.
 - **Per-watch AI summaries:** Choose whether Gemini writes summaries in each watch’s add or edit settings. Turning the option off keeps the built-in change summary.
 - **Custom AI prompt styles:** Choose General Summary, Price/Inventory Focused, or Short & Punchy for each watch. The style is saved in SQLite and adjusts the instructions sent to Google Gemini.
@@ -52,7 +54,7 @@ flowchart LR
     Diff --> Alerts[Email and webhooks]
 ```
 
-The Express service serves the frontend and JSON API. A scheduler finds due pages and places checks into a SQLite-backed queue. Bounded workers fetch one copy of each shared URL, then evaluate the result against each watch’s selectors, sensitivity, and alert preferences. For meaningful changes, the worker uses the watch’s selected Gemini prompt style to create a summary before saving the snapshot. Meaningful versions are saved and notifications are delivered through configured channels.
+The Express service serves the frontend and JSON API. A scheduler finds due pages and places checks into a SQLite-backed queue. A compact dashboard status bar indicates whether the scheduler is active and shows its scan cadence. Bounded workers fetch one copy of each shared URL, then evaluate the result against each watch’s selectors, sensitivity, and alert preferences. For meaningful changes, the worker uses the watch’s selected Gemini prompt style to create a summary before saving the snapshot. Meaningful versions are saved and notifications are delivered through configured channels.
 
 ### Low-level design
 

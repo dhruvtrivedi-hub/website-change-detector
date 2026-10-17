@@ -13,14 +13,21 @@ import { processTrackers } from './tracking.js';
 import { sha256 } from './util/crypto.js';
 
 const running = new Set();
+const workerPollIntervalMs = 2000;
+let schedulerLastTickAt = null;
 const jitter = (ms) => (Math.random() * 2 - 1) * ms; // +/- ms
 
 // ---------- Scheduler: turns "due" pages into queued jobs ----------
 
 export function schedulerTick() {
   const now = Date.now();
+  schedulerLastTickAt = now;
   const due = db.prepare('SELECT id FROM pages WHERE next_check_at <= ?').all(now);
   for (const p of due) enqueue(p.id, now);
+}
+
+export function getWorkerStatus() {
+  return { schedulerLastTickAt };
 }
 
 export function startWorker() {
@@ -35,7 +42,7 @@ export function startWorker() {
         .catch((e) => console.error('job crashed', e))
         .finally(() => running.delete(job.id));
     }
-  }, 2000);
+  }, workerPollIntervalMs);
 }
 
 // ---------- One job = one fetch of one page, shared by every watcher ----------
