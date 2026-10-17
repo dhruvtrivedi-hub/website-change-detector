@@ -22,9 +22,9 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
 - **AI-Powered Change Summaries (powered by Google Gemini):** Set `GEMINI_API_KEY` to have the Google Gen AI SDK summarize each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; without a key or if Gemini is unavailable, the app uses its built-in summary.
 - **Per-watch AI summaries:** Choose whether Gemini writes summaries in each watch’s add or edit settings. Turning the option off keeps the built-in change summary.
-- **Summary prompt styles:** Choose General Summary, Price & Inventory Focused, or Short & Punchy for each watch; the preference is saved in SQLite and shapes Gemini’s instructions.
-- **Exportable watch history:** Download an individual watch’s snapshots, text, summaries, line-change counts, and alert delivery log as CSV or JSON.
-- **Visual diff statistics:** Each saved change records added and removed line counts, shown as compact pills beside the summary in the version timeline.
+- **Custom AI prompt styles:** Choose General Summary, Price/Inventory Focused, or Short & Punchy for each watch. The style is saved in SQLite and adjusts the instructions sent to Google Gemini.
+- **Export History:** Download an individual watch’s saved snapshots, page text, summaries, and alert logs as CSV or JSON.
+- **Visual diff statistics:** The timeline calculates live added and removed line counts by comparing each version with the previous chronological snapshot, then displays `+N lines` and `−N lines` badges beside each change log entry and summary.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
 - **Responsive, mobile-friendly dashboard:** The web dashboard is optimized for mobile screens and viewports of all sizes. Navigation, tables, content panels, and modal forms adapt to narrow screens without horizontal scrolling.
 - **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
