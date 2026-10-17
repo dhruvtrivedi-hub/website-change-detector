@@ -440,6 +440,7 @@ function openWatch(w) {
       <label class="check"><input type="checkbox" id="fEmail" ${w?.notify_email !== false ? 'checked' : ''}> Email me</label>
       <label class="check"><input type="checkbox" id="fHook" ${w?.notify_webhook !== false ? 'checked' : ''}> Send to Telegram / Discord</label>
       <label class="check"><input type="checkbox" id="fDigest" ${w?.digest ? 'checked' : ''}> Send changes as one daily digest instead of instantly</label>
+      <label class="check"><input type="checkbox" id="fAiSummary" ${w?.ai_summary !== false ? 'checked' : ''}> AI-written change summaries</label>
     </div>
     <div class="dlg-f"><span class="err" id="fErr"></span>
       <button type="button" class="btn" id="fCancel">Cancel</button>
@@ -457,6 +458,7 @@ function openWatch(w) {
       name: $('#fName').value, interval_min: Number($('#fInt').value), sensitivity: $('#fSens').value,
       watch_selectors: lines('#fWatch'), ignore_selectors: lines('#fIgnore'), keyword: $('#fKw').value,
       notify_email: $('#fEmail').checked, notify_webhook: $('#fHook').checked, digest: $('#fDigest').checked,
+      ai_summary: $('#fAiSummary').checked,
       trackers: trk.map((t) => ({
         id: t.id, label: t.label, selector: t.selector.trim(), mode: t.mode,
         threshold: t.mode === 'below' || t.mode === 'above' ? t.threshold : null,

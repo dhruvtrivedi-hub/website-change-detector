@@ -21,10 +21,15 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Noise controls:** Strip common dynamic noise, select CSS regions to watch or ignore, tune sensitivity, and filter alerts by keywords.
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
 - **AI-Powered Change Summaries (powered by Google Gemini):** Set `GEMINI_API_KEY` to have the Google Gen AI SDK summarize each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; without a key or if Gemini is unavailable, the app uses its built-in summary.
+- **Per-watch AI summaries:** Choose whether Gemini writes summaries in each watch’s add or edit settings. Turning the option off keeps the built-in change summary.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
-- **Custom-built interface:** A responsive dashboard and landing page with clear status badges, compact data views, and a dedicated architecture guide.
+- **Responsive, mobile-friendly dashboard:** The web dashboard is optimized for mobile screens and viewports of all sizes. Navigation, tables, content panels, and modal forms adapt to narrow screens without horizontal scrolling.
 - **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
 - **Lightweight scraping:** Axios fetches initial page HTML and Cheerio extracts text. No Playwright, Chromium download, or system browser installation is required.
+
+### Responsive dashboard
+
+The dashboard uses responsive layouts and spacing across phone, tablet, and desktop viewports. Navigation and form controls reflow on narrow screens, and tables and dialogs remain usable without forcing horizontal page scrolling.
 
 ## Architecture: HLD & LLD summary
 

@@ -224,9 +224,8 @@ async function processWatch(w, trackers, result, shotCache, page) {
   if (!isSignificant(prev.text, text, d, w.sensitivity)) return; // keep old baseline; nothing stored
 
   let summary = summarize(d);
-  // The UI no longer exposes a per-watch AI toggle, so don't let a stale
-  // ai_summary value from an older watch prevent the requested summary.
-  if (aiEnabled()) {
+  // Respect the user's per-watch preference; without Gemini, keep the built-in summary.
+  if (w.ai_summary && aiEnabled()) {
     try {
       const generated = await generateChangeSummary(prev.text, text);
       if (typeof generated === 'string' && generated.trim()) summary = generated.trim();
