@@ -67,6 +67,8 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 .chart .line{fill:none;stroke:var(--accent);stroke-width:2}.chart .dot{fill:var(--accent)}.chart .thr{stroke:var(--err);stroke-dasharray:4 4}
 .numblock{display:grid;gap:4px;padding-bottom:14px;border-bottom:1px solid var(--rule)}.numblock:last-child{border-bottom:0}
 .change-summary{padding:12px 14px;border-left:3px solid var(--accent);border-radius:0 9px 9px 0;background:rgba(139,124,255,.08)}.change-summary b{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}.change-summary p{margin:4px 0 0;color:var(--ink);font-size:13px;line-height:1.55}
+.diff-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.diff-pill{display:inline-flex;align-items:center;border:1px solid var(--rule);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;white-space:nowrap}.diff-pill.added{color:#54d6a2;background:rgba(84,214,162,.08)}.diff-pill.removed{color:#ff8292;background:rgba(255,100,120,.08)}
+.export-dropdown{position:relative}.export-dropdown summary{list-style:none;cursor:pointer}.export-dropdown summary::-webkit-details-marker{display:none}.export-menu{position:absolute;right:0;bottom:calc(100% + 7px);z-index:5;display:grid;min-width:145px;padding:5px;border:1px solid var(--rule);border-radius:10px;background:var(--panel);box-shadow:0 12px 30px rgba(0,0,0,.3)}.export-menu a{padding:8px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:12px}.export-menu a:hover{background:rgba(139,124,255,.12)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:700px){header.top{padding:12px 14px;gap:7px}header.top h1{font-size:14px}header.top h1:before{width:30px;height:30px}.btn{padding:7px 9px;font-size:12px}main{padding:32px 14px 56px}.row{grid-template-columns:1fr}.login{margin:7vh 16px;padding:26px}.dlg-b{padding:17px}.trkrow{grid-template-columns:1fr 1fr}.dlg-h{padding:16px 17px}}
 @media(max-width:760px){
@@ -177,6 +179,7 @@ input::placeholder,textarea::placeholder{color:#62718a}select option{background:
 :root[data-theme="light"] .feature-icon,:root[data-theme="light"] .feature-card h3{color:#344152}:root[data-theme="light"] .feature-card p{color:#657386}
 :root[data-theme="light"] .landing-footer{color:#69778a;border-color:#dce2e9}:root[data-theme="light"] .landing-footer a{color:#526174}
 :root[data-theme="light"] .change-summary{background:#f0effb}:root[data-theme="light"] .change-summary b{color:#5644c5}:root[data-theme="light"] .change-summary p{color:#344152}
+:root[data-theme="light"] .diff-pill.added{color:#13794d;background:#eaf8f1}:root[data-theme="light"] .diff-pill.removed{color:#a72e42;background:#fff0f1}
 .theme-toggle{white-space:nowrap;min-width:92px}
 .auth-brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .settings-email{padding:13px 15px;border:1px solid var(--rule);border-radius:10px;background:var(--panel);display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--muted);font-size:13px}
@@ -441,12 +444,19 @@ function openWatch(w) {
       <label class="check"><input type="checkbox" id="fHook" ${w?.notify_webhook !== false ? 'checked' : ''}> Send to Telegram / Discord</label>
       <label class="check"><input type="checkbox" id="fDigest" ${w?.digest ? 'checked' : ''}> Send changes as one daily digest instead of instantly</label>
       <label class="check"><input type="checkbox" id="fAiSummary" ${w?.ai_summary !== false ? 'checked' : ''}> AI-written change summaries</label>
+      <label>Summary style <select id="fSummaryStyle">
+        <option value="general" ${(w?.summary_style || 'general') === 'general' ? 'selected' : ''}>General Summary</option>
+        <option value="price_inventory" ${w?.summary_style === 'price_inventory' ? 'selected' : ''}>Price &amp; Inventory Focused</option>
+        <option value="short_punchy" ${w?.summary_style === 'short_punchy' ? 'selected' : ''}>Short &amp; Punchy</option>
+      </select></label>
     </div>
     <div class="dlg-f"><span class="err" id="fErr"></span>
       <button type="button" class="btn" id="fCancel">Cancel</button>
       <button type="submit" class="btn primary">${w ? 'Save changes' : 'Start watching'}</button></div>
   </form>`;
   $('#fSens').value = w?.sensitivity || 'medium';
+  $('#fSummaryStyle').disabled = !$('#fAiSummary').checked;
+  $('#fAiSummary').onchange = () => { $('#fSummaryStyle').disabled = !$('#fAiSummary').checked; };
   trk = (w?.trackers || []).map((t) => ({ ...t, threshold: t.threshold ?? '' }));
   paintTrackers();
   $('#fAddTrk').onclick = () => { trk.push({ label: 'Number ' + (trk.length + 1), selector: '', mode: 'any', threshold: '' }); paintTrackers(); };
@@ -459,6 +469,7 @@ function openWatch(w) {
       watch_selectors: lines('#fWatch'), ignore_selectors: lines('#fIgnore'), keyword: $('#fKw').value,
       notify_email: $('#fEmail').checked, notify_webhook: $('#fHook').checked, digest: $('#fDigest').checked,
       ai_summary: $('#fAiSummary').checked,
+      summary_style: $('#fSummaryStyle').value,
       trackers: trk.map((t) => ({
         id: t.id, label: t.label, selector: t.selector.trim(), mode: t.mode,
         threshold: t.mode === 'below' || t.mode === 'above' ? t.threshold : null,
@@ -536,9 +547,10 @@ async function openTimeline(w) {
   let snaps;
   try { snaps = await api(`/watches/${w.id}/snapshots`); } catch (e) { d.querySelector('.dlg-b').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
   const opts = snaps.map((s) => `<option value="${s.id}">${new Date(s.created_at).toLocaleString()}</option>`).join('');
+  const diffStats = (s) => s.has_previous ? `<div class="diff-stats"><span class="diff-pill added">+${Number(s.added_lines) || 0} lines</span><span class="diff-pill removed">−${Number(s.removed_lines) || 0} lines</span></div>` : '';
   d.innerHTML = `<div class="dlg-h">${esc(w.name)}: version timeline</div>
   <div class="dlg-b">
-    ${snaps[0]?.prev_id && snaps[0]?.summary ? `<section class="change-summary" aria-label="Latest change summary"><b>Latest change</b><p>${esc(snaps[0].summary)}</p></section>` : ''}
+    ${snaps[0]?.prev_id && snaps[0]?.summary ? `<section class="change-summary" aria-label="Latest change summary"><b>Latest change</b><p>${esc(snaps[0].summary)}</p>${diffStats(snaps[0])}</section>` : ''}
     ${snaps.length < 2 ? '<p style="margin:0;color:var(--muted)">Only the baseline is saved so far. A new version appears here when the content changes.</p>' : `
     <div class="row" style="align-items:end">
       <label>Compare <select id="tlFrom">${opts}</select></label>
@@ -546,10 +558,10 @@ async function openTimeline(w) {
     </div><div><button class="btn" id="tlGo">Open side-by-side comparison</button></div>`}
     <table class="tl"><tbody>${snaps.map((s) => `<tr>
       <td style="white-space:nowrap">${new Date(s.created_at).toLocaleString()}</td>
-      <td>${esc(s.summary || '')}</td>
+      <td>${esc(s.summary || '')}${diffStats(s)}</td>
       <td style="text-align:right">${s.compare_url ? `<a href="${esc(s.compare_url)}" target="_blank" rel="noopener">View diff</a>` : ''}</td></tr>`).join('')}</tbody></table>
   </div>
-  <div class="dlg-f"><button class="btn" id="tlClose">Close</button></div>`;
+  <div class="dlg-f"><details class="export-dropdown"><summary class="btn">Export history</summary><div class="export-menu"><a href="/api/watches/${w.id}/export?format=csv" download>Download CSV</a><a href="/api/watches/${w.id}/export?format=json" download>Download JSON</a></div></details><button class="btn" id="tlClose">Close</button></div>`;
   $('#tlClose').onclick = () => d.close();
   if (snaps.length >= 2) {
     $('#tlFrom').value = snaps[1].id; $('#tlTo').value = snaps[0].id;

@@ -163,7 +163,7 @@ function saveShot(watchId, buf, cache) {
   return file;
 }
 
-function storeSnapshot(w, prev, text, hash, summary, result, cache, trackerSelectors = []) {
+function storeSnapshot(w, prev, text, hash, summary, result, cache, trackerSelectors = [], diffStats = {}) {
   const rectsOf = (sels) => sels.flatMap((s) => result.rects[s] || []);
   const masks = {
     ignore: rectsOf([...JSON.parse(w.ignore_selectors), ...trackerSelectors]),
@@ -172,10 +172,10 @@ function storeSnapshot(w, prev, text, hash, summary, result, cache, trackerSelec
   const file = saveShot(w.id, result.screenshot, cache);
   const info = db
     .prepare(
-      `INSERT INTO snapshots(watch_id, prev_id, created_at, hash, text, summary, screenshot_path, masks)
-       VALUES (?,?,?,?,?,?,?,?)`,
+      `INSERT INTO snapshots(watch_id, prev_id, created_at, hash, text, summary, added_lines, removed_lines, screenshot_path, masks)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
     )
-    .run(w.id, prev?.id ?? null, Date.now(), hash, text, summary, file, JSON.stringify(masks));
+    .run(w.id, prev?.id ?? null, Date.now(), hash, text, summary, diffStats.addedLines || 0, diffStats.removedLines || 0, file, JSON.stringify(masks));
   const id = Number(info.lastInsertRowid);
   db.prepare('UPDATE watches SET last_snapshot_id=?, rebaseline=0 WHERE id=?').run(id, w.id);
   pruneSnapshots(w.id);
@@ -227,14 +227,17 @@ async function processWatch(w, trackers, result, shotCache, page) {
   // Respect the user's per-watch preference; without Gemini, keep the built-in summary.
   if (w.ai_summary && aiEnabled()) {
     try {
-      const generated = await generateChangeSummary(prev.text, text);
+      const generated = await generateChangeSummary(prev.text, text, w.summary_style || 'general');
       if (typeof generated === 'string' && generated.trim()) summary = generated.trim();
     } catch (error) {
       // A Gemini failure must never prevent the changed snapshot from being saved.
       console.error('Gemini summary generation failed; saving the built-in summary:', error.message);
     }
   }
-  const snapId = storeSnapshot(w, prev, text, hash, summary, result, shotCache, trackerSelectors);
+  const snapId = storeSnapshot(w, prev, text, hash, summary, result, shotCache, trackerSelectors, {
+    addedLines: d.added.length,
+    removedLines: d.removed.length,
+  });
   const streak = w.change_streak + 1;
   db.prepare('UPDATE watches SET last_changed_at=?, change_streak=?, noisy=? WHERE id=?').run(
     Date.now(),

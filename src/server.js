@@ -204,6 +204,11 @@ async function parseWatch(b, { partial = false } = {}) {
   for (const k of ['notify_email', 'notify_webhook', 'digest', 'ai_summary']) {
     if (b[k] !== undefined || !partial) out[k] = b[k] === undefined ? (k === 'digest' ? 0 : 1) : b[k] ? 1 : 0;
   }
+  if (b.summary_style !== undefined || !partial) {
+    const style = b.summary_style ?? 'general';
+    if (!['general', 'price_inventory', 'short_punchy'].includes(style)) throw new Error('Unknown AI summary style');
+    out.summary_style = style;
+  }
   if (b.trackers !== undefined || !partial) out.trackers = parseTrackers(b.trackers ?? []);
   return out;
 }
@@ -286,7 +291,7 @@ function publicWatch(w, trackers = trackersOf(w.id)) {
     id: w.id, name: w.name, url: w.url, interval_min: w.interval_min, sensitivity: w.sensitivity,
     watch_selectors: JSON.parse(w.watch_selectors), ignore_selectors: JSON.parse(w.ignore_selectors),
     keyword: w.keyword, notify_email: !!w.notify_email, notify_webhook: !!w.notify_webhook, digest: !!w.digest,
-    ai_summary: !!w.ai_summary, trackers,
+    ai_summary: !!w.ai_summary, summary_style: w.summary_style || 'general', trackers,
     status: w.status, last_error: w.last_error, last_checked_at: w.last_checked_at,
     last_changed_at: w.last_changed_at, next_check_at: w.next_check_at, noisy: !!w.noisy,
     rss_url: `${config.baseUrl}/rss/${w.rss_token}`,
@@ -295,6 +300,28 @@ function publicWatch(w, trackers = trackersOf(w.id)) {
 
 const WATCH_SELECT = `SELECT w.*, p.url, p.status, p.last_error, p.last_checked_at, p.next_check_at
                       FROM watches w JOIN pages p ON p.id = w.page_id`;
+
+// Recompute metrics from retained snapshots in chronological order. This also
+// fills accurate values for versions created before added/removed columns existed.
+function snapshotsWithDiffStats(watchId) {
+  const snapshots = db.prepare(
+    `SELECT id, prev_id, created_at, hash, text, summary
+     FROM snapshots WHERE watch_id=? ORDER BY created_at ASC, id ASC`,
+  ).all(watchId);
+  let previousText = null;
+  return snapshots.map((snapshot) => {
+    const hasPrevious = previousText !== null;
+    const diff = hasPrevious ? textDiff(previousText, snapshot.text) : { added: [], removed: [] };
+    previousText = snapshot.text;
+    return {
+      ...snapshot,
+      has_previous: hasPrevious,
+      added_lines: diff.added.length,
+      removed_lines: diff.removed.length,
+      chars: snapshot.text.length,
+    };
+  });
+}
 
 // ---------- scraper health check ----------
 
@@ -476,11 +503,11 @@ app.post('/api/watches', auth, wrap(async (req, res) => {
     const r = db
       .prepare(
         `INSERT INTO watches(user_id, page_id, name, interval_min, sensitivity, watch_selectors, ignore_selectors,
-           keyword, notify_email, notify_webhook, digest, ai_summary, rss_token, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+           keyword, notify_email, notify_webhook, digest, ai_summary, summary_style, rss_token, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(req.user.id, page.id, v.name, v.interval_min, v.sensitivity, JSON.stringify(v.watch_selectors),
-        JSON.stringify(v.ignore_selectors), v.keyword, v.notify_email, v.notify_webhook, v.digest, v.ai_summary, randomToken(18), now);
+        JSON.stringify(v.ignore_selectors), v.keyword, v.notify_email, v.notify_webhook, v.digest, v.ai_summary, v.summary_style, randomToken(18), now);
     watchId = Number(r.lastInsertRowid);
     saveTrackers(watchId, v.trackers);
     recomputePage(page.id);
@@ -546,10 +573,55 @@ app.post('/api/watches/:id/check', auth, (req, res) => {
 app.get('/api/watches/:id/snapshots', auth, (req, res) => {
   const w = ownWatch(req, res);
   if (!w) return;
-  const rows = db
-    .prepare('SELECT id, prev_id, created_at, summary, length(text) AS chars FROM snapshots WHERE watch_id=? ORDER BY id DESC LIMIT 100')
-    .all(w.id);
-  res.json(rows.map((r) => ({ ...r, compare_url: r.prev_id ? diffUrl(w.id, r.prev_id, r.id) : null })));
+  const rows = snapshotsWithDiffStats(w.id).slice(-100).reverse();
+  res.json(rows.map(({ text, hash, ...r }) => ({ ...r, compare_url: r.prev_id ? diffUrl(w.id, r.prev_id, r.id) : null })));
+});
+
+// Download one watch's saved versions and notification log as CSV or JSON.
+app.get('/api/watches/:id/export', auth, (req, res) => {
+  const w = ownWatch(req, res);
+  if (!w) return;
+  const format = String(req.query.format || 'csv').toLowerCase();
+  if (!['csv', 'json'].includes(format)) return res.status(400).json({ error: 'Format must be csv or json.' });
+
+  const page = db.prepare('SELECT url FROM pages WHERE id=?').get(w.page_id);
+  const watch = {
+    id: w.id, name: w.name, url: page?.url || '', interval_min: w.interval_min,
+    sensitivity: w.sensitivity, ai_summary: !!w.ai_summary, summary_style: w.summary_style || 'general',
+  };
+  const snapshots = snapshotsWithDiffStats(w.id);
+  const alerts = db.prepare(
+    `SELECT id, kind, dedupe_key, summary, link, created_at, sent_at, attempts, last_attempt_at, delivered, digest
+     FROM alerts WHERE watch_id=? ORDER BY id`,
+  ).all(w.id).map((alert) => {
+    try { return { ...alert, delivered: JSON.parse(alert.delivered || '[]') }; }
+    catch { return { ...alert, delivered: [] }; }
+  });
+  const filename = `watch-${w.id}-history.${format}`;
+
+  if (format === 'json') {
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.json({ exported_at: new Date().toISOString(), watch, snapshots, alerts });
+  }
+
+  const columns = ['record_type', 'watch_id', 'watch_name', 'watch_url', 'created_at', 'id', 'prev_id', 'kind', 'dedupe_key', 'summary', 'added_lines', 'removed_lines', 'hash', 'text', 'sent_at', 'attempts', 'last_attempt_at', 'delivered', 'digest', 'link'];
+  const cell = (value) => {
+    let text = String(value ?? '');
+    if (/^[\u0000-\u0020]*[=+\-@]/.test(text)) text = `'${text}`; // prevent spreadsheet formula execution
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+  const rows = [columns];
+  for (const snapshot of snapshots) rows.push([
+    'snapshot', watch.id, watch.name, watch.url, new Date(snapshot.created_at).toISOString(), snapshot.id, snapshot.prev_id,
+    '', '', snapshot.summary, snapshot.added_lines, snapshot.removed_lines, snapshot.hash, snapshot.text, '', '', '', '', '', '',
+  ]);
+  for (const alert of alerts) rows.push([
+    'alert', watch.id, watch.name, watch.url, new Date(alert.created_at).toISOString(), alert.id, '', alert.kind,
+    alert.dedupe_key, alert.summary, '', '', '', '', alert.sent_at ? new Date(alert.sent_at).toISOString() : '', alert.attempts,
+    alert.last_attempt_at ? new Date(alert.last_attempt_at).toISOString() : '', alert.delivered.join(', '), alert.digest, alert.link,
+  ]);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.type('text/csv; charset=utf-8').send(`\uFEFF${rows.map((row) => row.map(cell).join(',')).join('\r\n')}`);
 });
 
 // Any two versions: returns a signed link to the side-by-side comparison page

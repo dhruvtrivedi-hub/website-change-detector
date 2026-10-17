@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS watches (
   notify_webhook INTEGER NOT NULL DEFAULT 1,
   digest INTEGER NOT NULL DEFAULT 0,
   ai_summary INTEGER NOT NULL DEFAULT 1,       -- Gemini-written change summaries (only if the server has an API key)
+  summary_style TEXT NOT NULL DEFAULT 'general',
   rss_token TEXT UNIQUE,
   last_snapshot_id INTEGER,
   last_changed_at INTEGER,
@@ -115,6 +116,8 @@ CREATE TABLE IF NOT EXISTS snapshots (
   hash TEXT NOT NULL,
   text TEXT NOT NULL,
   summary TEXT,
+  added_lines INTEGER NOT NULL DEFAULT 0,
+  removed_lines INTEGER NOT NULL DEFAULT 0,
   screenshot_path TEXT,
   masks TEXT NOT NULL DEFAULT '{}'
 );
@@ -182,6 +185,9 @@ function addColumn(table, column, ddl) {
   if (!cols.some((c) => c.name === column)) raw.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
 }
 addColumn('watches', 'ai_summary', 'INTEGER NOT NULL DEFAULT 1');
+addColumn('watches', 'summary_style', "TEXT NOT NULL DEFAULT 'general'");
+addColumn('snapshots', 'added_lines', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('snapshots', 'removed_lines', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'password_hash', 'TEXT');
 
 // Remove the obsolete access-token column while preserving legacy accounts and their ids.

@@ -22,6 +22,9 @@ The service accepts public page URLs, checks them on a schedule, compares normal
 - **Useful history and alerts:** Review text changes and per-page timelines. Send email or Telegram/Discord webhook alerts, with deduplication and optional daily digests.
 - **AI-Powered Change Summaries (powered by Google Gemini):** Set `GEMINI_API_KEY` to have the Google Gen AI SDK summarize each meaningful before/after change in one concise sentence. The summary is saved with the SQLite snapshot and appears in the version timeline; without a key or if Gemini is unavailable, the app uses its built-in summary.
 - **Per-watch AI summaries:** Choose whether Gemini writes summaries in each watch’s add or edit settings. Turning the option off keeps the built-in change summary.
+- **Summary prompt styles:** Choose General Summary, Price & Inventory Focused, or Short & Punchy for each watch; the preference is saved in SQLite and shapes Gemini’s instructions.
+- **Exportable watch history:** Download an individual watch’s snapshots, text, summaries, line-change counts, and alert delivery log as CSV or JSON.
+- **Visual diff statistics:** Each saved change records added and removed line counts, shown as compact pills beside the summary in the version timeline.
 - **Tracked numbers:** Monitor prices, stock counts, ratings, or other numeric values with charts and threshold alerts.
 - **Responsive, mobile-friendly dashboard:** The web dashboard is optimized for mobile screens and viewports of all sizes. Navigation, tables, content panels, and modal forms adapt to narrow screens without horizontal scrolling.
 - **Dark and light themes:** A sun/moon navigation toggle switches between dark and light mode across the landing page, sign-in screens, dashboard, and architecture docs. The selected theme is saved in `localStorage` and restored on later visits; tables, forms, dialogs, and status badges are styled for both palettes.
@@ -44,11 +47,12 @@ flowchart LR
     Worker --> Scraper[Axios + Cheerio]
     Scraper --> Page[Public web page]
     Worker --> Diff[Normalize, filter, compare]
-    Diff --> DB
+    Diff --> Gemini[Google Gemini summary]
+    Gemini --> DB
     Diff --> Alerts[Email and webhooks]
 ```
 
-The Express service serves the frontend and JSON API. A scheduler finds due pages and places checks into a SQLite-backed queue. Bounded workers fetch one copy of each shared URL, then evaluate the result against each watch’s selectors, sensitivity, and alert preferences. Meaningful versions are saved and notifications are delivered through configured channels.
+The Express service serves the frontend and JSON API. A scheduler finds due pages and places checks into a SQLite-backed queue. Bounded workers fetch one copy of each shared URL, then evaluate the result against each watch’s selectors, sensitivity, and alert preferences. For meaningful changes, the worker uses the watch’s selected Gemini prompt style to create a summary before saving the snapshot. Meaningful versions are saved and notifications are delivered through configured channels.
 
 ### Low-level design
 
@@ -63,7 +67,7 @@ The Express service serves the frontend and JSON API. A scheduler finds due page
 | `src/db.js` | SQLite schema and safe startup migrations. |
 | `src/util/ssrf.js` | Public-address validation for watch URLs and redirect destinations. |
 
-Core data is stored in SQLite tables for `users`, `sessions`, `pages`, `watches`, `snapshots`, `jobs`, `alerts`, `trackers`, and `readings`. A `pages` row is shared by all users watching the same normalized URL; individual `watches` retain per-user settings. Snapshot hashes prevent unchanged content from creating duplicate versions, and alert deduplication keys prevent repeated delivery.
+Core data is stored in SQLite tables for `users`, `sessions`, `pages`, `watches`, `snapshots`, `jobs`, `alerts`, `trackers`, and `readings`. A `pages` row is shared by all users watching the same normalized URL; individual `watches` retain per-user settings, including the AI summary toggle and prompt style. Snapshots store extracted text, summaries, and added/removed line counts. The authenticated watch export includes retained snapshots and alert delivery logs in CSV or JSON. Snapshot hashes prevent unchanged content from creating duplicate versions, and alert deduplication keys prevent repeated delivery.
 
 ### Reliability and security
 
